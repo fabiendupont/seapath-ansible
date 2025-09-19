@@ -191,14 +191,6 @@
     src: initramfs-tools/conf.d/rebooter.conf.j2
     dest: /etc/dracut.conf.d/rebooter.conf
 
-- name: Configure initramfs-tools to use busybox
-  lineinfile:
-    dest: /etc/dracut.conf
-    regexp: "^#?BUSYBOX="
-    line: "BUSYBOX=y"
-    state: present
-  notify: Rebuild initramfs if necessary
-
 - name: Add rbd type to lvm.conf
   ansible.builtin.lineinfile:
     path: /etc/lvm/lvm.conf
