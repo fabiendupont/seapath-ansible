@@ -56,3 +56,6 @@ src/svtools/*
 # Tests results
 tests_results/*
 !tests_results/README
+
+# Temporary files
+tmp/
