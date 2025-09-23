@@ -32,35 +32,34 @@
         - hostname
 
     - name: Check disk space (minimum 10GB)
-      command: df -BG /var/lib/ceph | tail -1 | awk '{print $4}' | sed 's/G//'
-      register: disk_space
-      changed_when: false
+      ansible.builtin.stat:
+        path: /var/lib/ceph
+      register: ceph_dir_stat
       when: cephadm_validate_prerequisites | default(true)
 
     - name: Fail if insufficient disk space
       fail:
-        msg: "Insufficient disk space. Required: 10GB, Available: {{ disk_space.stdout }}GB"
+        msg: "Insufficient disk space. Required: 10GB, Available: {{ (ceph_dir_stat.stat.size / 1024 / 1024 / 1024) | round }}GB"
       when: 
         - cephadm_validate_prerequisites | default(true)
-        - disk_space.stdout | int < 10
+        - (ceph_dir_stat.stat.size / 1024 / 1024 / 1024) | round < 10
 
     - name: Check memory (minimum 4GB)
-      command: free -g | awk 'NR==2{print $2}'
-      register: memory_gb
-      changed_when: false
+      ansible.builtin.setup:
+        filter: "ansible_memtotal_mb"
       when: cephadm_validate_prerequisites | default(true)
 
     - name: Fail if insufficient memory
       fail:
-        msg: "Insufficient memory. Required: 4GB, Available: {{ memory_gb.stdout }}GB"
+        msg: "Insufficient memory. Required: 4GB, Available: {{ (ansible_memtotal_mb / 1024) | round }}GB"
       when:
         - cephadm_validate_prerequisites | default(true)
-        - memory_gb.stdout | int < 4
+        - (ansible_memtotal_mb / 1024) | round < 4
 
     - name: Check container runtime
-      command: which podman
+      ansible.builtin.which:
+        program: podman
       register: podman_check
-      changed_when: false
       when: cephadm_validate_prerequisites | default(true)
 
     - name: Fail if podman not found
@@ -68,66 +67,69 @@
         msg: "Podman container runtime not found. Please install podman."
       when:
         - cephadm_validate_prerequisites | default(true)
-        - podman_check.rc != 0
+        - podman_check is failed
 
 # =============================================================================
 # User and Group Management
 # =============================================================================
-- name: Ensure group "cephadm" exists
-  group:
-    name: cephadm
-    gid: "{{ cephadm_group_id }}"
-    state: present
+- name: Create Ceph Users and Groups
+  block:
+    - name: Ensure group "cephadm" exists
+      group:
+        name: cephadm
+        gid: "{{ cephadm_group_id }}"
+        state: present
 
-- name: Ensure user "cephadm" exists
-  user:
-    name: cephadm
-    uid: "{{ cephadm_user_id }}"
-    group: cephadm
-    create_home: yes
+    - name: Ensure user "cephadm" exists
+      user:
+        name: cephadm
+        uid: "{{ cephadm_user_id }}"
+        group: cephadm
+        create_home: yes
 
-- name: Ensure group "containerized-ceph" exists
-  group:
-    name: containerized-ceph
-    gid: "{{ containerized_ceph_group_id }}"
-    state: present
+    - name: Set cephadm user sudo permissions
+      copy:
+        src: cephadm_sudoers
+        dest: /etc/sudoers.d/cephadm
+
+- name: Create Debian-specific Ceph Users and Groups
+  block:
+    - name: Ensure group "containerized-ceph" exists
+      group:
+        name: containerized-ceph
+        gid: "{{ containerized_ceph_group_id }}"
+        state: present
+
+    - name: Ensure user "containerized-ceph" exists with nologin
+      user:
+        name: containerized-ceph
+        uid: "{{ containerized_ceph_user_id }}"
+        group: containerized-ceph
+        create_home: no
+        shell: /sbin/nologin
   when: seapath_distro == "Debian"
-
-- name: Ensure user "containerized-ceph" exists with nologin (already exists on centos/oraclelinux)
-  user:
-    name: containerized-ceph
-    uid: "{{ containerized_ceph_user_id }}"
-    group: containerized-ceph
-    create_home: no
-    shell: /sbin/nologin
-  when: seapath_distro == "Debian"
-
-- name: Set cephadm user sudo permissions
-  copy:
-    src: cephadm_sudoers
-    dest: /etc/sudoers.d/cephadm
 
 # =============================================================================
 # Cephadm Installation
 # =============================================================================
-- name: Download cephadm
-  get_url:
-    url: "https://download.ceph.com/rpm-{{ cephadm_release }}/el9/noarch/cephadm"
-    dest: "/tmp/cephadm"
-    mode: '0755'
+- name: Install Cephadm Binary and Repository
+  block:
+    - name: Download cephadm
+      get_url:
+        url: "https://download.ceph.com/rpm-{{ cephadm_release }}/el9/noarch/cephadm"
+        dest: "/tmp/cephadm"
+        mode: '0755'
+
+    - name: Install cephadm repository
+      command: "{{ '/tmp/cephadm' if cephadm_install | default(false) else 'cephadm' }} add-repo --release squid"
+      changed_when: true
+
+    - name: Install cephadm
+      command: /tmp/cephadm install
+      changed_when: true
   when: cephadm_install is true
 
-- name: Install cephadm repository
-  command: "{{ '/tmp/cephadm' if cephadm_install | default(false) else 'cephadm' }} add-repo --release squid"
-  changed_when: true
-  when: cephadm_installrepo is true
-
-- name: Install cephadm
-  command: /tmp/cephadm install
-  changed_when: true
-  when: cephadm_install is true
-
-- name: Install ceph-common package
+- name: Install Ceph Common Package
   command: cephadm install ceph-common
   changed_when: true
   when: cephadm_installcommon is true
@@ -150,59 +152,58 @@
 # =============================================================================
 # Cluster State Detection and Management
 # =============================================================================
-- name: Check if host is part of a Ceph cluster
-  command: "ceph -s"
-  register: ceph_status
-  ignore_errors: true
-  changed_when: false
+- name: Detect Cluster State and Organize Nodes
+  block:
+    - name: Check if host is part of a Ceph cluster
+      ceph.automation.ceph_status:
+        cluster: ceph
+      register: ceph_status
+      ignore_errors: true
+      changed_when: false
 
-- name: Mark host as ceph or nonceph
-  set_fact:
-    is_ceph_node: "{{ ceph_status.rc == 0 }}"
+    - name: Mark host as ceph or nonceph
+      set_fact:
+        is_ceph_node: "{{ ceph_status is not failed }}"
 
-- name: Add host to ceph_nodes group
-  add_host:
-    name: "{{ item }}"
-    groups: ceph_nodes
-  run_once: true
-  loop: "{{ groups['cluster_machines'] }}"
-  when: hostvars[item].is_ceph_node
+    - name: Add host to ceph_nodes group
+      add_host:
+        name: "{{ item }}"
+        groups: ceph_nodes
+      loop: "{{ groups['cluster_machines'] }}"
+      when: hostvars[item].is_ceph_node
 
-- name: Add host to nonceph_nodes group
-  add_host:
-    name: "{{ item }}"
-    groups: nonceph_nodes
-  run_once: true
-  loop: "{{ groups['cluster_machines'] }}"
-  when: not hostvars[item].is_ceph_node
+    - name: Add host to nonceph_nodes group
+      add_host:
+        name: "{{ item }}"
+        groups: nonceph_nodes
+      loop: "{{ groups['cluster_machines'] }}"
+      when: not hostvars[item].is_ceph_node
 
-- name: Set first_node and bootstrap condition
-  set_fact:
-    first_node: >-
-      {{ (groups['ceph_nodes'][0] if (groups['ceph_nodes'] is defined and groups['ceph_nodes'] | length > 0)
-         else groups['cluster_machines'][0]) | trim }}
-    do_bootstrap: "{{ (groups['ceph_nodes'] | default([])) | length == 0 }}"
-  run_once: true
+    - name: Set first_node and bootstrap condition
+      set_fact:
+        first_node: >-
+          {{ (groups['ceph_nodes'][0] if (groups['ceph_nodes'] is defined and groups['ceph_nodes'] | length > 0)
+             else groups['cluster_machines'][0]) | trim }}
+        do_bootstrap: "{{ (groups['ceph_nodes'] | default([])) | length == 0 }}"
 
-- name: Compute list of nodes to add as monitors
-  set_fact:
-    mon_nodes_to_add: "{{ (groups['nonceph_nodes'] | default([]) | difference([first_node])) if do_bootstrap else groups['nonceph_nodes'] | default([]) }}"
-  run_once: true
+    - name: Compute list of nodes to add as monitors
+      set_fact:
+        mon_nodes_to_add: "{{ (groups['nonceph_nodes'] | default([]) | difference([first_node])) if do_bootstrap else groups['nonceph_nodes'] | default([]) }}"
 
-- name: Debug cluster state
-  debug:
-    msg: |
-      first_node = {{ first_node }}
-      do_bootstrap = {{ do_bootstrap }}
-      mon_nodes_to_add = {{ mon_nodes_to_add | default([]) }}
-      ceph_nodes = {{ groups['ceph_nodes'] | default([]) }}
-      nonceph_nodes = {{ groups['nonceph_nodes'] | default([]) }}
-      registry_url = {{ registry_url }}
-      registry_host = {{ registry_host }}
-      registry_mirror_url = {{ registry_mirror_url | default('not set') }}
-      is_control_registry = {{ is_control_registry }}
-      is_external_registry = {{ is_external_registry }}
-      has_registry_mirror = {{ has_registry_mirror }}
+    - name: Debug cluster state
+      debug:
+        msg: |
+          first_node = {{ first_node }}
+          do_bootstrap = {{ do_bootstrap }}
+          mon_nodes_to_add = {{ mon_nodes_to_add | default([]) }}
+          ceph_nodes = {{ groups['ceph_nodes'] | default([]) }}
+          nonceph_nodes = {{ groups['nonceph_nodes'] | default([]) }}
+          registry_url = {{ registry_url }}
+          registry_host = {{ registry_host }}
+          registry_mirror_url = {{ registry_mirror_url | default('not set') }}
+          is_control_registry = {{ is_control_registry }}
+          is_external_registry = {{ is_external_registry }}
+          has_registry_mirror = {{ has_registry_mirror }}
   run_once: true
 
 # =============================================================================
@@ -218,34 +219,32 @@
       run_once: true
       delegate_to: "{{ first_node }}"
 
-    - name: Bootstrap Ceph cluster
-      command: >
-          cephadm
-          --image quay.io/ceph/ceph:v{{ cephadm_release }}
-          bootstrap
-          --skip-monitoring-stack
-          --skip-dashboard
-          --skip-firewalld
-          --config /tmp/ceph.conf
-          --ssh-user cephadm
-          --mon-ip {{ hostvars[first_node]['cluster_ip_addr'] }}
+    - name: Bootstrap Ceph cluster using native module
+      ceph.automation.cephadm_bootstrap:
+        mon_ip: "{{ hostvars[first_node]['cluster_ip_addr'] }}"
+        image: "quay.io/ceph/ceph:v{{ cephadm_release }}"
+        config: /tmp/ceph.conf
+        ssh_user: cephadm
+        skip_monitoring_stack: true
+        skip_dashboard: true
+        skip_firewalld: true
       register: ceph_bootstrap_result
       retries: 3
       delay: 10
-      until: ceph_bootstrap_result.rc == 0
+      until: ceph_bootstrap_result is not failed
       run_once: true
       delegate_to: "{{ first_node }}"
 
     - name: Display bootstrap result
       debug:
         msg: "Ceph cluster bootstrap completed successfully"
-      when: ceph_bootstrap_result.rc == 0
+      when: ceph_bootstrap_result is not failed
       run_once: true
 
     - name: Fail on bootstrap error
       fail:
-        msg: "Ceph cluster bootstrap failed: {{ ceph_bootstrap_result.stderr }}"
-      when: ceph_bootstrap_result.rc != 0
+        msg: "Ceph cluster bootstrap failed: {{ ceph_bootstrap_result.msg | default('Unknown error') }}"
+      when: ceph_bootstrap_result is failed
       run_once: true
   when: do_bootstrap | bool
 
@@ -293,130 +292,213 @@
 # Monitor Management
 # =============================================================================
 - name: Add hosts to Ceph orchestrator with _admin label
-  command: "ceph orch host add {{ hostvars[item]['hostname'] }} --labels _admin"
+  ceph.automation.ceph_orch_host:
+    name: "{{ hostvars[item]['hostname'] }}"
+    labels: ["_admin"]
+    state: present
   loop: "{{ mon_nodes_to_add }}"
-  changed_when: true
-  failed_when: false
   run_once: true
   delegate_to: "{{ first_node }}"
   when: mon_nodes_to_add | length > 0
 
 - name: Wait for monitors to be added to monmap
-  command: ceph mon dump
+  ceph.automation.ceph_mon:
+    state: present
   register: mon_dump
   retries: 30
   delay: 5
   changed_when: false
   run_once: true
   delegate_to: "{{ first_node }}"
-  until: "hostvars[item]['hostname'] in mon_dump.stdout"
+  until: mon_dump.mons is defined and hostvars[item]['hostname'] in mon_dump.mons
   loop: "{{ mon_nodes_to_add }}"
   when: mon_nodes_to_add | length > 0
 
 # =============================================================================
 # OSD Management
 # =============================================================================
-- name: Get list of current OSD daemons and their hosts
-  command: ceph orch ps --daemon-type=osd --format json
-  register: osd_ps
-  delegate_to: "{{ first_node }}"
-  run_once: true
-  changed_when: false
+- name: Deploy OSD Daemons
+  block:
+    - name: Get list of current OSD daemons and their hosts
+      ceph.automation.ceph_orch_ps:
+        daemon_type: osd
+      register: osd_ps
+      delegate_to: "{{ first_node }}"
+      changed_when: false
 
-- name: Set fact for existing OSD hosts
-  set_fact:
-    existing_osd_hosts: "{{ osd_ps.stdout | from_json | map(attribute='hostname') | list | unique }}"
-  run_once: true
+    - name: Set fact for existing OSD hosts
+      set_fact:
+        existing_osd_hosts: "{{ osd_ps.daemons | map(attribute='hostname') | list | unique }}"
 
-- name: Set list of nodes that need OSDs
-  set_fact:
-    nodes_needing_osds: "{{ groups['cluster_machines'] | map('extract', hostvars, 'hostname') | difference(existing_osd_hosts) }}"
-  run_once: true
+    - name: Set list of nodes that need OSDs
+      set_fact:
+        nodes_needing_osds: "{{ groups['cluster_machines'] | map('extract', hostvars, 'hostname') | difference(existing_osd_hosts) }}"
 
-- name: Zap the volume on nodes that need OSDs
-  command: "cephadm --image quay.io/ceph/ceph:v{{ cephadm_release }} ceph-volume lvm zap vg_ceph/lv_ceph"
-  delegate_to: "{{ item }}"
-  run_once: true
-  when: hostvars[item]['hostname'] in nodes_needing_osds
-  loop: "{{ groups['cluster_machines'] }}"
-  changed_when: true
+    - name: Copy ceph orch spec file
+      template:
+        src: "{{ ceph_spec_path | default('spec.yaml.j2') }}"
+        dest: /tmp/t.yaml
+        mode: 0644
+      delegate_to: "{{ first_node }}"
 
-- name: Copy ceph orch spec file
-  template:
-    src: "{{ ceph_spec_path | default('spec.yaml.j2') }}"
-    dest: /tmp/t.yaml
-    mode: 0644
-  run_once: true
-  delegate_to: "{{ first_node }}"
-
-- name: Add OSD daemon on nodes that need OSDs
-  command: cephadm --image quay.io/ceph/ceph:v{{ cephadm_release }} shell -v /tmp/t.yaml:/tmp/t.yaml:ro -- ceph orch apply -i /tmp/t.yaml
-  delegate_to: "{{ first_node }}"
-  run_once: true
-  changed_when: true
-  failed_when: false
-
-# =============================================================================
-# Cluster Health Validation
-# =============================================================================
-- name: Wait for cluster to be healthy
-  command: ceph status --format=json
-  register: cluster_health
-  retries: "{{ cephadm_health_check_retries }}"
-  delay: "{{ cephadm_health_check_delay }}"
-  changed_when: false
-  run_once: true
-  delegate_to: "{{ first_node }}"
-  until: cluster_health.stdout | from_json | community.general.json_query('health.status') == "HEALTH_OK"
-
-- name: Display cluster health status
-  debug:
-    msg: "Cluster health: {{ cluster_health.stdout | from_json | community.general.json_query('health.status') }}"
+    - name: Add OSD daemon on nodes that need OSDs
+      ceph.automation.ceph_orch_apply:
+        spec: /tmp/t.yaml
+      delegate_to: "{{ first_node }}"
+      failed_when: false
   run_once: true
 
 # =============================================================================
-# RBD Pool and CephX User Management
+# LVM Volume Expansion Detection and Management
 # =============================================================================
-- name: Check if RBD pool exists
-  shell:
-    cmd: set -o pipefail && ceph osd lspools | grep -w rbd
-    executable: /bin/bash
-  register: rbd_pool_check
-  changed_when: false
-  failed_when: false
+- name: Detect and Prepare LVM Expansion
+  block:
+    - name: Refresh LVM facts for expansion detection
+      ansible.builtin.setup:
+        filter: "ansible_lvm"
 
-- name: Create RBD pool if it doesn't exist
-  command: ceph osd pool create rbd
-  when: rbd_pool_check.rc != 0
-  changed_when: true
+    - name: Detect if VG expansion is needed
+      set_fact:
+        vg_expansion_needed: "{{ lvm_volumes is defined and ansible_lvm is defined }}"
+
+    - name: Detect if LV expansion is needed
+      set_fact:
+        lv_expansion_needed: >-
+          {{ lvm_volumes is defined and ansible_lvm is defined and 
+             (lvm_volumes[0].data_size | int) > 
+             ((ansible_lvm['lvs'][lvm_volumes[0].data]['size_g'] | float * 1024) | round(2)) }}
+
+    - name: Debug expansion requirements
+      debug:
+        msg: |
+          VG expansion needed: {{ vg_expansion_needed | default(false) }}
+          LV expansion needed: {{ lv_expansion_needed | default(false) }}
+          Current LV size: {{ (ansible_lvm['lvs'][lvm_volumes[0].data]['size_g'] | float * 1024) | round(2) }}MB
+          Required LV size: {{ lvm_volumes[0].data_size }}MB
+      when: ansible_verbosity >= 2
+  when: lvm_volumes is defined
+
+# =============================================================================
+# VG Expansion (Physical Volume and Volume Group)
+# =============================================================================
+- name: Expand Volume Group
+  block:
+    - name: Get PV information for VG expansion
+      set_fact:
+        pv_list: "{{ ansible_lvm['pvs'] | dict2items | community.general.json_query(query) }}"
+      vars:
+        query: "[?value.vg=='{{ lvm_volumes[0].data_vg }}'].key"
+
+    - name: Get partition information for PV expansion
+      community.general.parted:
+        device: "{{ item | regex_replace('(p?\\d+)$', '') }}"
+      loop: "{{ pv_list }}"
+      register: parted_info
+
+    - name: Calculate new partition sizes
+      set_fact:
+        partition_expansions: "{{ parted_info.results | map('extract', 'ansible_facts') | list }}"
+
+    - name: Expand partitions declaratively
+      community.general.parted:
+        device: "{{ item.device }}"
+        number: "{{ item.partition_num }}"
+        part_end: "{{ item.new_end }}MiB"
+        state: present
+      loop: "{{ partition_expansions }}"
+
+    - name: Resize physical volumes
+      community.general.pvresize:
+        pv: "{{ item }}"
+      loop: "{{ pv_list }}"
+  when: vg_expansion_needed | default(false)
+
+# =============================================================================
+# LV Expansion and OSD Resizing
+# =============================================================================
+- name: Expand Logical Volume and Resize OSDs
+  block:
+    - name: Expand logical volume declaratively
+      community.general.lvol:
+        vg: "{{ lvm_volumes[0].data_vg }}"
+        lv: "{{ lvm_volumes[0].data }}"
+        size: "{{ lvm_volumes[0].data_size }}"
+      register: lv_expansion_result
+
+    - name: Handle OSD resizing after LV expansion
+      block:
+        - name: Get OSD service information for resizing
+          ansible.builtin.service_facts:
+
+        - name: Find Ceph OSD services
+          set_fact:
+            osd_services: "{{ ansible_facts.services | dict2items | selectattr('key', 'match', '.*osd.*') | map(attribute='key') | list }}"
+
+        - name: Stop OSD services for resizing
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            state: stopped
+          loop: "{{ osd_services }}"
+
+        - name: Wait for OSD services to stop
+          ansible.builtin.wait_for:
+            timeout: 5
+
+        - name: Resize OSDs using cephadm shell
+          ansible.builtin.command: >
+            cephadm shell --name {{ item | regex_search('@(osd\\.[0-9]+)\\.service', '\\1') | list | first }}
+            ceph-bluestore-tool bluefs-bdev-expand
+            --path /var/lib/ceph/osd/ceph-{{ (item | regex_search('@(osd\\.[0-9]+)\\.service', '\\1') | list | first).split('.')[-1] }}
+          loop: "{{ osd_services }}"
+
+        - name: Start OSD services after resizing
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            state: started
+          loop: "{{ osd_services }}"
+
+        - name: Wait for cluster health after OSD resizing
+          ceph.automation.ceph_status:
+            cluster: ceph
+          register: cluster_health_after_resize
+          retries: 20
+          delay: 2
+          changed_when: false
+          until: cluster_health_after_resize.health.status == "HEALTH_OK"
+      when: lv_expansion_result.changed | default(false)
+  when: lv_expansion_needed | default(false)
+
+# =============================================================================
+# Cluster Health Validation and Final Configuration
+# =============================================================================
+- name: Validate Cluster Health and Configure Resources
+  block:
+    - name: Wait for cluster to be healthy
+      ceph.automation.ceph_status:
+        cluster: ceph
+      register: cluster_health
+      retries: "{{ cephadm_health_check_retries }}"
+      delay: "{{ cephadm_health_check_delay }}"
+      changed_when: false
+      delegate_to: "{{ first_node }}"
+      until: cluster_health.health.status == "HEALTH_OK"
+
+    - name: Display cluster health status
+      debug:
+        msg: "Cluster health: {{ cluster_health.health.status }}"
+
+    - name: Create RBD pool if it doesn't exist
+      ceph.automation.ceph_pool:
+        name: rbd
+        state: present
+        application: rbd
+      delegate_to: "{{ first_node }}"
+
+    - name: Create or update CephX user client.libvirt
+      ceph.automation.ceph_key:
+        name: client.libvirt
+        caps:
+          mon: 'profile rbd, allow command "osd blacklist"'
+          osd: 'allow class-read object_prefix rbd_children, profile rbd pool=rbd'
+        state: present
   run_once: true
-  delegate_to: "{{ first_node }}"
-
-- name: Enable RBD application on the pool
-  command: ceph osd pool application enable rbd rbd
-  when: rbd_pool_check.rc != 0
-  changed_when: true
-  run_once: true
-  delegate_to: "{{ first_node }}"
-
-- name: Check if CephX user client.libvirt exists
-  command: ceph auth get client.libvirt
-  register: cephx_user_check
-  changed_when: false
-  failed_when: false
-
-- name: Create CephX user client.libvirt if it does not exist
-  command: >
-    ceph auth add client.libvirt
-    mon 'profile rbd, allow command "osd blacklist"'
-    osd 'allow class-read object_prefix rbd_children, profile rbd pool=rbd'
-  when: cephx_user_check.rc != 0
-  changed_when: true
-
-- name: Update CephX user client.libvirt permissions if it exists
-  command: >
-    ceph auth caps client.libvirt
-    mon 'profile rbd, allow command "osd blacklist"'
-    osd 'allow class-read object_prefix rbd_children, profile rbd pool=rbd'
-  when: cephx_user_check.rc == 0
-  changed_when: true

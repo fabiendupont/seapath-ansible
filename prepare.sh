@@ -21,10 +21,13 @@ if ! command -v ansible &>/dev/null ; then
     exit 1
 fi
 
-echo "Test Ansible version is 2.10"
-if ! ansible --version | grep -q 'ansible 2.10' ; then
-    echo "Error: Installed version of ansible must match 2.10" 1>&2
+echo "Test Ansible version is 2.19 or higher (2.15+ EOL as of Nov 2024)"
+ANSIBLE_VERSION=$(ansible --version | head -n1 | grep -oE '[0-9]+\.[0-9]+' | head -n1)
+if ! python3 -c "import sys; from packaging import version; sys.exit(0 if version.parse('$ANSIBLE_VERSION') >= version.parse('2.19') else 1)" 2>/dev/null; then
+    echo "Error: Installed version of ansible ($ANSIBLE_VERSION) must be 2.19 or higher" 1>&2
+    echo "Ansible 2.15+ reached end-of-life on November 30, 2024" 1>&2
     echo "See README.adoc for instructions" 1>&2
+    exit 1
 fi
 
 echo "Test ansible-galaxy is installed"

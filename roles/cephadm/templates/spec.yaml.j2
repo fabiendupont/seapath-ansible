@@ -21,8 +21,12 @@ placement:
   host_pattern: {{ hostvars[host]['hostname'] }}
 spec:
   data_devices:
+{% if lvm_volumes is defined %}
     paths:
-    - /dev/vg_ceph/lv_ceph
+    - /dev/{{ lvm_volumes[0].data_vg }}/{{ lvm_volumes[0].data }}
+{% else %}
+    all: true
+{% endif %}
   filter_logic: AND
   objectstore: bluestore
 ---
