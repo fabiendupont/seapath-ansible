@@ -8,7 +8,7 @@ index 109a25697..3afab0460 100644
    become: true
 +  gather_facts: true
 +  roles:
-+    - detect_seapath_distro
++    - detect_distribution
    tasks:
      - debug:
          msg: "gather facts on all Ceph hosts for following reference"
@@ -16,7 +16,7 @@ index 109a25697..3afab0460 100644
          - rbd
          - ceph
          - libceph
-+      when: seapath_distro != "Yocto"
++      when: ansible_os_family != "Yocto"
  
  
  - name: purge ceph nfs cluster
@@ -24,16 +24,16 @@ index 109a25697..3afab0460 100644
        when:
          - containerized_deployment | bool
            or ceph_volume_present.rc == 0
-+        - seapath_distro != "Yocto"
++        - ansible_os_family != "Yocto"
 +
 +    - name: Get real path for OSD disk
 +      command: "realpath {{ ceph_osd_disk }}" # Get the resolved path of the disk given initially by the "/dev/disk/by-path/" for ceph purposes
 +      register: ceph_osd_realdisk
-+      when: seapath_distro == "Yocto"
++      when: ansible_os_family == "Yocto"
 +
 +    - name: Cleanup Ceph OSD disks with ceph-volume
 +      command: "ceph-volume lvm zap {{ ceph_osd_realdisk.stdout }} --destroy"
-+      when: seapath_distro == "Yocto"
++      when: ansible_os_family == "Yocto"
  
      - name: get ceph block partitions
        shell: |

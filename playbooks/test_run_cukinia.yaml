@@ -11,9 +11,9 @@
     - standalone_machine
     - VMs
   roles:
-    - detect_seapath_distro
+    - detect_distribution
   tasks:
-  - include_vars: "../vars/{{ seapath_distro }}_paths.yml"
+  - include_vars: "../vars/{{ ansible_os_family }}_paths.yml"
 
 - name: Cukinia tests
   hosts:

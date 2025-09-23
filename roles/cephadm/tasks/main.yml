@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- include_vars: "{{ seapath_distro }}.yml"
+- include_vars: "{{ ansible_os_family }}.yml"
 
 - name: Ensure group "cephadm" exists
   group:
@@ -22,7 +22,7 @@
     name: containerized-ceph
     gid: 167
     state: present
-  when: seapath_distro == "Debian"
+  when: ansible_os_family == "Debian"
 
 - name: Ensure user "containerized-ceph" exists with nologin (already exists on centos/oraclelinux)
   user:
@@ -31,7 +31,7 @@
     group: containerized-ceph
     create_home: no
     shell: /sbin/nologin
-  when: seapath_distro == "Debian"
+  when: ansible_os_family == "Debian"
 
 - name: Set cephadm user sudo permissions
   copy:

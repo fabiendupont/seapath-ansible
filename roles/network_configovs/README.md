@@ -22,7 +22,7 @@ No requirement.
 | unbind_pci_address             | No       | String list |           | List of PCI addresses to "unbind".                                                                           |
 | ovs_vsctl_cmds                 | No       | String list |           | List of additional Open vSwtich commands to run with ovs-vsctl                                               |
 | interfaces_on_br0              | No       | Dict List   |           | List of br0 tap interfaces defined for the `network_guestinterfaces` role. They will be ignored by this role |
-| seapath_distro                 | Yes      | String      |           | SEAPATH variant. CentOS, Debian or Yocto. It is set by the role `detect_seapath_distro`                      |
+| ansible_os_family              | Yes      | String      |           | Distribution family. RedHat, Debian or Yocto. It is set by the role `detect_distribution`                      |
 | network_configovs_apply_config | Yes      | Bool        | false     | Apply the OVS configuration immediately. Otherwise, it will be applied at the next reboot                    |
 
 ## Example Playbook

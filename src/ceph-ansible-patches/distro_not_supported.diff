@@ -8,7 +8,7 @@ index 1c6197efd..339e30deb 100644
      - system
 -dependencies: []
 +dependencies:
-+  - role: ../../roles/detect_seapath_distro
++  - role: ../../roles/detect_distribution
 diff --git a/roles/ceph-validate/tasks/check_system.yml b/roles/ceph-validate/tasks/check_system.yml
 index dc8cdd6fd..8f7d224eb 100644
 --- a/roles/ceph-validate/tasks/check_system.yml
@@ -20,7 +20,7 @@ index dc8cdd6fd..8f7d224eb 100644
 -  when: ansible_facts['os_family'] not in ['Debian', 'RedHat', 'ClearLinux', 'Suse']
 +  when:
 +    - ansible_facts['os_family'] not in ['Debian', 'RedHat', 'ClearLinux', 'Suse']
-+    - seapath_distro != "Yocto"
++    - ansible_os_family != "Yocto"
  
  - name: fail on unsupported CentOS release
    fail:

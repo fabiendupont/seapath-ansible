@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- when: seapath_distro in [ "CentOS", "Debian", "OracleLinux" ]
+- when: ansible_os_family in [ "RedHat", "Debian" ]
   block:
     - name: Get root user's home directory
       shell:

@@ -11,4 +11,4 @@ galaxy_info:
     versions:
     - all
 dependencies:
-  - role: detect_seapath_distro
+  - role: detect_distribution

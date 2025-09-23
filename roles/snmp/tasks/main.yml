@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- include_vars: "{{ seapath_distro }}.yml"
+- include_vars: "{{ ansible_os_family }}.yml"
 
 - name: Configure snmp
   when: snmp_admin_ip_addr is defined
@@ -81,7 +81,7 @@
       state: present
 
   - name: SNMP V3
-    when: snmp_accounts is defined and snmp_accounts | length > 0 and seapath_distro == "Debian"
+    when: snmp_accounts is defined and snmp_accounts | length > 0 and ansible_os_family == "Debian"
     block:
       # restart is needed for /var/lib/snmp/snmpd.conf to exist
       - name: Restart snmpd

@@ -10,11 +10,11 @@
   become: true
   gather_facts: yes
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - ceph_prepare_installation
   tasks:
     - name: Set ceph UID/GID fact
-      when: seapath_distro == "Yocto"
+      when: ansible_os_family == "Yocto"
       block:
         - name: Get GID of ceph group
           register: ceph_gid_result

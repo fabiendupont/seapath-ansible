@@ -11,7 +11,7 @@
   become: true
   gather_facts: yes
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - ceph_prepare_installation
 
 - name: Ceph Expansion VG
@@ -38,5 +38,5 @@
       cluster_machines
   become: true
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - cephadm

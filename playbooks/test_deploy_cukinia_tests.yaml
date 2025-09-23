@@ -11,7 +11,7 @@
   gather_facts: True
   roles:
     - deploy_cukinia
-    - detect_seapath_distro
+    - detect_distribution
 
 - name: Deploy Cukinia's tests
   hosts:
@@ -22,6 +22,6 @@
   gather_facts: True
   roles:
     - role: debian_tests
-      when: seapath_distro == "Debian"
+      when: ansible_os_family == "Debian"
     - role: oraclelinux_tests
-      when: seapath_distro == "OracleLinux"
+      when: ansible_os_family == "RedHat"

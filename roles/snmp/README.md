@@ -10,7 +10,7 @@ No requirement.
 
 | Variable               | Required | Type         | Comments                                                                                                             |
 |------------------------|----------|--------------|----------------------------------------------------------------------------------------------------------------------|
-| seapath_distro         | yes      | String       | SEAPATH variant. CentOS, Debian or Yocto. The variable can be set automatically using the detect_seapath_distro role |
+| ansible_os_family      | yes      | String       | Distribution family. RedHat, Debian or Yocto. The variable is set automatically using the detect_distribution role |
 | snmp_accounts          | no       | List of dict | List of snmp_accounts. See bellow.                                                                                   |
 | snmp_admin_ip_addr     | yes      | string       | SNMP agent IP address                                                                                                |
 | extra_snmpd_directives | no       | string       | Extra snmpd.conf configuration                                                                                       |

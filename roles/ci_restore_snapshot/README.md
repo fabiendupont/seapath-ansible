@@ -4,7 +4,7 @@ This role restores the LVM snapshot of the root LV and re-creates it
 
 ## Requirements
 
-- detect_seapath_distro
+- detect_distribution
 
 ## Role Variables
 

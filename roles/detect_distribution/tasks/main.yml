@@ -1,0 +1,36 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+- name: Gather distribution facts
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - 'distribution'
+
+- name: Check if /etc/os-release exists
+  ansible.builtin.stat:
+    path: /etc/os-release
+  register: os_release_file
+
+- name: Read CPE_NAME from /etc/os-release for Yocto detection
+  ansible.builtin.shell: grep 'CPE_NAME.*cpe:/o:openembedded' /etc/os-release
+  register: yocto_check
+  failed_when: false
+  when: os_release_file.stat.exists
+
+- name: Set ansible_os_family to Yocto for OpenEmbedded systems
+  set_fact:
+    ansible_os_family: "Yocto"
+  when: 
+    - ansible_distribution is not defined or ansible_distribution == "NA"
+    - yocto_check.rc == 0
+
+- name: Ensure distribution is detected
+  fail:
+    msg: "Could not determine distribution. ansible_os_family={{ ansible_os_family | default('undefined') }}, ansible_distribution={{ ansible_distribution | default('undefined') }}"
+  when: ansible_os_family is not defined
+
+- name: Set is_using_cephadm depending on distro and option
+  set_fact:
+    is_using_cephadm: "{{ ansible_os_family == 'RedHat' or (force_cephadm | default(false)) }}"

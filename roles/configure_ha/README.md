@@ -10,7 +10,7 @@ No requirement.
 
 | Variable                             | Required | Type        | Default | Comments                                                                       |
 |--------------------------------------|----------|-------------|---------|--------------------------------------------------------------------------------|
-| seapath_distro                       | yes      | String      |         | SEAPATH variant. *CentOS*, *Debian* or *Yocto*. The variable can be set automatically using the *detect_seapath_distro role* |
+| ansible_os_family                    | yes      | String      |         | Distribution family. *RedHat*, *Debian* or *Yocto*. The variable is set automatically using the *detect_distribution role* |
 | corosync_node_list                   | yes      | String list |         | List of all corosync nodes. Usually `{{ groups['cluster_machines'] \| list }}` |
 | configure_ha_tmpdir                  | no       | String      | /tmp    | Temporary directory path to use                                                |
 | configure_ha_disable_stonith         | no       | Bool        | true    | Disable Fencing - STONITH                                                      |

@@ -47,4 +47,4 @@
     enabled: false
   when:
     - dns_servers is not defined
-    - seapath_distro != "Yocto"
+    - ansible_os_family != "Yocto"

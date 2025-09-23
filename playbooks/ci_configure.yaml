@@ -11,15 +11,15 @@
   become: true
   gather_facts: true
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - role: ci_cleanup_varlog
-      when: seapath_distro != "Debian"
+      when: ansible_os_family != "Debian"
     - role: ci_reinstalliso
-      when: seapath_distro == "Debian"
+      when: ansible_os_family == "Debian"
     - role: ci_restoredd
-      when: seapath_distro == "OracleLinux"
+      when: ansible_os_family == "RedHat"
     - role: ci_restore_snapshot
-      when: seapath_distro != "Debian" and seapath_distro != "OracleLinux"
+      when: ansible_os_family == "Yocto"
 
 - name: CI configure skip reboot
   hosts:
@@ -30,10 +30,10 @@
     ansible.builtin.set_fact:
       skip_reboot_setup: true
       skip_reboot_setup_network: true
-    when: seapath_distro != "CentOS"
+    when: ansible_os_family != "RedHat"
 
 - name: Import seapath_setup_main playbook
   import_playbook: ./seapath_setup_main.yaml
 - name: Import seapath_setup_hardened_debian playbook
   import_playbook: ./seapath_setup_hardened_debian.yaml
-  when: seapath_distro == "Debian"
+  when: ansible_os_family == "Debian"

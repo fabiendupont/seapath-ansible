@@ -7,7 +7,7 @@
     - standalone_machine
   become: true
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - timemaster
 
 - name: Configure ptp_vsock

@@ -9,7 +9,7 @@ No requirement.
 
 | Variable                | Required | Type   | Comments                                                           |
 |-------------------------|----------|--------|--------------------------------------------------------------------|
-| seapath_distro          | yes      | String | SEAPATH variant. *CentOS*, *Debian* or *Yocto*. The variable can be set automatically using the *detect_seapath_distro role* |
+| ansible_os_family       | yes      | String | Distribution family. *RedHat*, *Debian* or *Yocto*. The variable is set automatically using the *detect_distribution role* |
 | admin_user              | yes      | String | The admin user.                                                    |
 
 ## Example Playbook

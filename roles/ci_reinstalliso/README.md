@@ -4,7 +4,7 @@ This role reinstalls the VM with the seapath debian iso
 
 ## Requirements
 
-- detect_seapath_distro
+- detect_distribution
 
 ## Role Variables
 

@@ -8,7 +8,7 @@ index 3c2a26e89..283bae30b 100644
      - system
 -dependencies: []
 +dependencies:
-+  - role: ../../roles/detect_seapath_distro
++  - role: ../../roles/detect_distribution
 diff --git a/roles/ceph-osd/tasks/main.yml b/roles/ceph-osd/tasks/main.yml
 index 623731ddd..e1631dc01 100644
 --- a/roles/ceph-osd/tasks/main.yml
@@ -17,7 +17,7 @@ index 623731ddd..e1631dc01 100644
    when:
      - not containerized_deployment | bool
      - ansible_facts['os_family'] != 'ClearLinux'
-+    - seapath_distro != "Yocto"
++    - ansible_os_family != "Yocto"
  
  - name: install numactl when needed
    package:

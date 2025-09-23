@@ -10,7 +10,7 @@ No requirement.
 
 | Variable                         | Required | Type    | Default | Comments                                                                                                                               |
 |----------------------------------|----------|---------|---------|----------------------------------------------------------------------------------------------------------------------------------------|
-| seapath_distro                   | yes      | String  |         | SEAPATH variant. CentOS, Debian or Yocto. The variable can be set automatically using the detect_seapath_distro role                   |
+| ansible_os_family                | yes      | String  |         | Distribution family. RedHat, Debian or Yocto. The variable is set automatically using the detect_distribution role                   |
 | ptp_interface                    | no       | String  |         | Network interface to use for PTP. The interface must support PTP hardware reception. If not set the PTP configuration will be skipped. |
 | ptp_vlanid                       | no       | Integer |         | Optional VLAN ID to use with PTP                                                                                                       |
 | ntp_servers                      | no       | String  |         | List of NTP/SNTP servers separated by a new line. If not set NTP configuration will be skipped                                         |

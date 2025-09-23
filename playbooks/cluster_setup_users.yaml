@@ -12,6 +12,6 @@
   gather_facts: true
   become: true
   roles:
-    - detect_seapath_distro
+    - detect_distribution
     - add_livemigration_user
     - configure_admin_user
