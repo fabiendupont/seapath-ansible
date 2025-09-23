@@ -4,30 +4,99 @@
 ---
 - include_vars: "{{ seapath_distro }}.yml"
 
+# =============================================================================
+# Registry Mode Detection
+# =============================================================================
+- name: Determine registry mode
+  set_fact:
+    is_control_registry: "{{ disconnected_mode | default(false) and registry_url != 'localhost:5000' }}"
+    is_external_registry: "{{ not disconnected_mode | default(false) and registry_url != 'localhost:5000' }}"
+    has_registry_mirror: "{{ registry_mirror_url is defined }}"
+  run_once: true
+
+# =============================================================================
+# Prerequisites Validation
+# =============================================================================
+- name: Validate prerequisites
+  block:
+    - name: Check if required variables are set
+      fail:
+        msg: "Required variable '{{ item }}' is not set"
+      when: 
+        - cephadm_validate_prerequisites | default(true)
+        - hostvars[inventory_hostname][item] is not defined or hostvars[inventory_hostname][item] == ""
+      loop:
+        - public_network
+        - cluster_network
+        - cluster_ip_addr
+        - hostname
+
+    - name: Check disk space (minimum 10GB)
+      command: df -BG /var/lib/ceph | tail -1 | awk '{print $4}' | sed 's/G//'
+      register: disk_space
+      changed_when: false
+      when: cephadm_validate_prerequisites | default(true)
+
+    - name: Fail if insufficient disk space
+      fail:
+        msg: "Insufficient disk space. Required: 10GB, Available: {{ disk_space.stdout }}GB"
+      when: 
+        - cephadm_validate_prerequisites | default(true)
+        - disk_space.stdout | int < 10
+
+    - name: Check memory (minimum 4GB)
+      command: free -g | awk 'NR==2{print $2}'
+      register: memory_gb
+      changed_when: false
+      when: cephadm_validate_prerequisites | default(true)
+
+    - name: Fail if insufficient memory
+      fail:
+        msg: "Insufficient memory. Required: 4GB, Available: {{ memory_gb.stdout }}GB"
+      when:
+        - cephadm_validate_prerequisites | default(true)
+        - memory_gb.stdout | int < 4
+
+    - name: Check container runtime
+      command: which podman
+      register: podman_check
+      changed_when: false
+      when: cephadm_validate_prerequisites | default(true)
+
+    - name: Fail if podman not found
+      fail:
+        msg: "Podman container runtime not found. Please install podman."
+      when:
+        - cephadm_validate_prerequisites | default(true)
+        - podman_check.rc != 0
+
+# =============================================================================
+# User and Group Management
+# =============================================================================
 - name: Ensure group "cephadm" exists
   group:
     name: cephadm
-    gid: 1001
+    gid: "{{ cephadm_group_id }}"
     state: present
 
 - name: Ensure user "cephadm" exists
   user:
     name: cephadm
-    uid: 1001
+    uid: "{{ cephadm_user_id }}"
     group: cephadm
     create_home: yes
 
 - name: Ensure group "containerized-ceph" exists
   group:
     name: containerized-ceph
-    gid: 167
+    gid: "{{ containerized_ceph_group_id }}"
     state: present
   when: seapath_distro == "Debian"
 
 - name: Ensure user "containerized-ceph" exists with nologin (already exists on centos/oraclelinux)
   user:
     name: containerized-ceph
-    uid: 167
+    uid: "{{ containerized_ceph_user_id }}"
     group: containerized-ceph
     create_home: no
     shell: /sbin/nologin
@@ -38,6 +107,9 @@
     src: cephadm_sudoers
     dest: /etc/sudoers.d/cephadm
 
+# =============================================================================
+# Cephadm Installation
+# =============================================================================
 - name: Download cephadm
   get_url:
     url: "https://download.ceph.com/rpm-{{ cephadm_release }}/el9/noarch/cephadm"
@@ -60,26 +132,24 @@
   changed_when: true
   when: cephadm_installcommon is true
 
-#- name: Disable ceph-crash non-containerized service
-#  ansible.builtin.systemd:
-#    name: ceph-crash.service
-#    enabled: false
-#    state: stopped
+# =============================================================================
+# Registry Authentication
+# =============================================================================
+- name: Login to external registry
+  command: >
+    cephadm registry-login
+    --registry-url {{ registry_url }}
+    --username {{ registry_username }}
+    --password {{ registry_password }}
+  when: 
+    - (is_control_registry or is_external_registry)
+    - registry_username != ""
+    - registry_password != ""
+  no_log: true
 
-#- name: Create /usr/local/bin/ceph with 755 permissions
-#  copy:
-#    dest: /usr/local/bin/ceph
-#    content: |
-#      #!/bin/bash
-#      if [ $# -eq 0 ]; then
-#        exec cephadm shell
-#      else
-#        exec cephadm shell -- ceph "$@"
-#      fi
-#    mode: '0755'
-#    owner: root
-#    group: root
-
+# =============================================================================
+# Cluster State Detection and Management
+# =============================================================================
 - name: Check if host is part of a Ceph cluster
   command: "ceph -s"
   register: ceph_status
@@ -119,7 +189,7 @@
     mon_nodes_to_add: "{{ (groups['nonceph_nodes'] | default([]) | difference([first_node])) if do_bootstrap else groups['nonceph_nodes'] | default([]) }}"
   run_once: true
 
-- name: Debug situation
+- name: Debug cluster state
   debug:
     msg: |
       first_node = {{ first_node }}
@@ -127,121 +197,101 @@
       mon_nodes_to_add = {{ mon_nodes_to_add | default([]) }}
       ceph_nodes = {{ groups['ceph_nodes'] | default([]) }}
       nonceph_nodes = {{ groups['nonceph_nodes'] | default([]) }}
+      registry_url = {{ registry_url }}
+      registry_host = {{ registry_host }}
+      registry_mirror_url = {{ registry_mirror_url | default('not set') }}
+      is_control_registry = {{ is_control_registry }}
+      is_external_registry = {{ is_external_registry }}
+      has_registry_mirror = {{ has_registry_mirror }}
   run_once: true
 
-- name: Ensure insecure registry localhost:5000 is in /etc/containers/registries.conf
-  ansible.builtin.blockinfile:
-    path: /etc/containers/registries.conf
-    marker: "# {mark} ANSIBLE MANAGED BLOCK for insecure registries"
-    block: |
-        [[registry]]
-        insecure = true
-        location = "localhost"
-
-- name: Ensure /var/lib/registry exists
-  ansible.builtin.file:
-    path: /var/lib/registry
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-
-- name: Pull needed Docker images
-  containers.podman.podman_image:
-    name: "{{ item }}"
-  when: cephadm_pullimages
-  loop:
-    - "docker.io/library/registry:2"
-    - "quay.io/ceph/ceph:v{{ cephadm_release }}"
-
-- name: Run local container registry using Podman
-  containers.podman.podman_container:
-    name: registry
-    image: registry:2
-    state: started
-    detach: true
-    privileged: true
-    ports:
-      - "5000:5000"
-    volume:
-      - /var/lib/registry:/var/lib/registry
-    restart_policy: always
-
-- name: Tag ceph image for local registry
-  command: >
-    podman tag quay.io/ceph/ceph:v{{ cephadm_release }} localhost:5000/ceph:v{{ cephadm_release }}
-  changed_when: true
-
-- name: Push ceph image to local registry
-  command: >
-    podman push localhost:5000/ceph:v{{ cephadm_release }}
-  changed_when: true
-
-# === Bootstrap if currently no ceph nodes ===
-- name: Upload file ceph.conf needed for bootstrapping
-  template:
-      src: ceph.conf.j2
-      dest: /tmp/ceph.conf
-  run_once: true
-  delegate_to: "{{ first_node }}"
-  when: do_bootstrap | bool
-
+# =============================================================================
+# Ceph Cluster Bootstrap
+# =============================================================================
 - name: Bootstrap Ceph cluster
-  command: >
-      cephadm
-      --image localhost:5000/ceph:v{{ cephadm_release }}
-      bootstrap
-      --skip-monitoring-stack
-      --skip-dashboard
-      --skip-firewalld
-      --config /tmp/ceph.conf
-      --ssh-user cephadm
-      --mon-ip {{ hostvars[first_node]['cluster_ip_addr'] }}
-  changed_when: true
-  failed_when: false
-  run_once: true
-  delegate_to: "{{ first_node }}"
-  register: ceph_bootstrap_result
+  block:
+    - name: Create ceph.conf template
+      template:
+        src: ceph.conf.j2
+        dest: /tmp/ceph.conf
+        mode: 0644
+      run_once: true
+      delegate_to: "{{ first_node }}"
+
+    - name: Bootstrap Ceph cluster
+      command: >
+          cephadm
+          --image quay.io/ceph/ceph:v{{ cephadm_release }}
+          bootstrap
+          --skip-monitoring-stack
+          --skip-dashboard
+          --skip-firewalld
+          --config /tmp/ceph.conf
+          --ssh-user cephadm
+          --mon-ip {{ hostvars[first_node]['cluster_ip_addr'] }}
+      register: ceph_bootstrap_result
+      retries: 3
+      delay: 10
+      until: ceph_bootstrap_result.rc == 0
+      run_once: true
+      delegate_to: "{{ first_node }}"
+
+    - name: Display bootstrap result
+      debug:
+        msg: "Ceph cluster bootstrap completed successfully"
+      when: ceph_bootstrap_result.rc == 0
+      run_once: true
+
+    - name: Fail on bootstrap error
+      fail:
+        msg: "Ceph cluster bootstrap failed: {{ ceph_bootstrap_result.stderr }}"
+      when: ceph_bootstrap_result.rc != 0
+      run_once: true
   when: do_bootstrap | bool
 
-# === adding cephadm key on other nodes ===
-- name: Check if /etc/ceph/ceph.pub exists on first_node
-  stat:
-    path: /etc/ceph/ceph.pub
-  register: ceph_pub_stat
-  run_once: true
-  delegate_to: "{{ first_node }}"
-  when: mon_nodes_to_add | length > 0
+# =============================================================================
+# SSH Key Management for Additional Nodes
+# =============================================================================
+- name: Manage SSH keys for additional nodes
+  block:
+    - name: Check if /etc/ceph/ceph.pub exists on first_node
+      stat:
+        path: /etc/ceph/ceph.pub
+      register: ceph_pub_stat
+      run_once: true
+      delegate_to: "{{ first_node }}"
 
-- name: Fetch the ceph keyfile if it exists, otherwise fetch authorized_keys
-  fetch:
-    src: "{{ ceph_pub_stat.stat.exists | ternary('/etc/ceph/ceph.pub', '/home/cephadm/.ssh/authorized_keys') }}"
-    dest: "/tmp/ceph.pub"
-    flat: true
-  delegate_to: "{{ first_node }}"
-  run_once: true
-  when: mon_nodes_to_add | length > 0
+    - name: Fetch the ceph keyfile if it exists, otherwise fetch authorized_keys
+      fetch:
+        src: "{{ ceph_pub_stat.stat.exists | ternary('/etc/ceph/ceph.pub', '/home/cephadm/.ssh/authorized_keys') }}"
+        dest: "/tmp/ceph.pub"
+        flat: true
+      delegate_to: "{{ first_node }}"
+      run_once: true
 
-- name: Read the key from the local file
-  set_fact:
-    ceph_pubkey: "{{ lookup('file', '/tmp/ceph.pub') }}"
-  delegate_to: localhost
-  run_once: true
-  when: mon_nodes_to_add | length > 0
+    - name: Read the key from the local file
+      set_fact:
+        ceph_pubkey: "{{ lookup('file', '/tmp/ceph.pub') }}"
+      delegate_to: localhost
+      run_once: true
 
-- name: Add the ceph pubkey to each target node
-  ansible.posix.authorized_key:
-    user: cephadm
-    state: present
-    key: "{{ ceph_pubkey }}"
-  with_items: "{{ mon_nodes_to_add }}"
-  loop_control:
-    loop_var: target_node
-  delegate_to: "{{ target_node }}"
-  run_once: true
-  when: mon_nodes_to_add | length > 0
+    - name: Add the ceph pubkey to each target node
+      ansible.posix.authorized_key:
+        user: cephadm
+        state: present
+        key: "{{ ceph_pubkey }}"
+      with_items: "{{ mon_nodes_to_add }}"
+      loop_control:
+        loop_var: target_node
+      delegate_to: "{{ target_node }}"
+      run_once: true
+  when: 
+    - mon_nodes_to_add | length > 0
+    - cephadm_ssh_key_management | default(true)
 
-# === adding monitor on other nodes ===
+# =============================================================================
+# Monitor Management
+# =============================================================================
 - name: Add hosts to Ceph orchestrator with _admin label
   command: "ceph orch host add {{ hostvars[item]['hostname'] }} --labels _admin"
   loop: "{{ mon_nodes_to_add }}"
@@ -251,7 +301,7 @@
   delegate_to: "{{ first_node }}"
   when: mon_nodes_to_add | length > 0
 
-- name: Confirm monitors are in monmap
+- name: Wait for monitors to be added to monmap
   command: ceph mon dump
   register: mon_dump
   retries: 30
@@ -263,32 +313,28 @@
   loop: "{{ mon_nodes_to_add }}"
   when: mon_nodes_to_add | length > 0
 
-# === OSDs now ===
+# =============================================================================
+# OSD Management
+# =============================================================================
 - name: Get list of current OSD daemons and their hosts
   command: ceph orch ps --daemon-type=osd --format json
   register: osd_ps
   delegate_to: "{{ first_node }}"
   run_once: true
   changed_when: false
+
 - name: Set fact for existing OSD hosts
   set_fact:
     existing_osd_hosts: "{{ osd_ps.stdout | from_json | map(attribute='hostname') | list | unique }}"
   run_once: true
-- name: Debug existing_osd_hosts
-  debug:
-    msg: "Nodes with existing OSDs: {{ existing_osd_hosts }}"
-  run_once: true
+
 - name: Set list of nodes that need OSDs
   set_fact:
     nodes_needing_osds: "{{ groups['cluster_machines'] | map('extract', hostvars, 'hostname') | difference(existing_osd_hosts) }}"
   run_once: true
-- name: Debug nodes needing OSDs
-  debug:
-    msg: "Nodes that need OSDs: {{ nodes_needing_osds }}"
-  run_once: true
 
 - name: Zap the volume on nodes that need OSDs
-  command: "cephadm --image localhost:5000/ceph:v{{ cephadm_release }} ceph-volume lvm zap vg_ceph/lv_ceph"
+  command: "cephadm --image quay.io/ceph/ceph:v{{ cephadm_release }} ceph-volume lvm zap vg_ceph/lv_ceph"
   delegate_to: "{{ item }}"
   run_once: true
   when: hostvars[item]['hostname'] in nodes_needing_osds
@@ -304,22 +350,33 @@
   delegate_to: "{{ first_node }}"
 
 - name: Add OSD daemon on nodes that need OSDs
-  command: cephadm --image localhost:5000/ceph:v{{ cephadm_release }} shell -v /tmp/t.yaml:/tmp/t.yaml:ro -- ceph orch apply -i /tmp/t.yaml
+  command: cephadm --image quay.io/ceph/ceph:v{{ cephadm_release }} shell -v /tmp/t.yaml:/tmp/t.yaml:ro -- ceph orch apply -i /tmp/t.yaml
   delegate_to: "{{ first_node }}"
   run_once: true
   changed_when: true
   failed_when: false
 
-- name: Confirm cluster is ok
+# =============================================================================
+# Cluster Health Validation
+# =============================================================================
+- name: Wait for cluster to be healthy
   command: ceph status --format=json
-  register: cephs
-  retries: 30
-  delay: 10
+  register: cluster_health
+  retries: "{{ cephadm_health_check_retries }}"
+  delay: "{{ cephadm_health_check_delay }}"
   changed_when: false
   run_once: true
   delegate_to: "{{ first_node }}"
-  until: cephs.stdout | from_json | community.general.json_query('health.status') == "HEALTH_OK"
+  until: cluster_health.stdout | from_json | community.general.json_query('health.status') == "HEALTH_OK"
 
+- name: Display cluster health status
+  debug:
+    msg: "Cluster health: {{ cluster_health.stdout | from_json | community.general.json_query('health.status') }}"
+  run_once: true
+
+# =============================================================================
+# RBD Pool and CephX User Management
+# =============================================================================
 - name: Check if RBD pool exists
   shell:
     cmd: set -o pipefail && ceph osd lspools | grep -w rbd
@@ -363,14 +420,3 @@
     osd 'allow class-read object_prefix rbd_children, profile rbd pool=rbd'
   when: cephx_user_check.rc == 0
   changed_when: true
-
-#- name: Update logrotate configuration for Ceph
-#  replace:
-#    path: "{{ cephadm_logrorateceph_path }}"
-#    regexp: '^/var/log/ceph/\*.log'
-#    replace: '/var/log/ceph/!(cephadm).log'
-
-- name: Stop and remove Podman registry container
-  containers.podman.podman_container:
-    name: registry
-    state: absent

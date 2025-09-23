@@ -26,6 +26,8 @@ The SEAPATH Ansible documentation is accessible on https://galaxy.ansible.com/ui
 This Readme only tackles how to handle the SEAPATH ansible sources and launch the default playbooks.
 For any advanced scenarios and setup, refer to the https://lf-energy.atlassian.net/wiki/spaces/SEAP/overview?homepageId=31817739[SEAPATH Wiki].
 
+For disconnected/offline deployments, see the link:DISCONNECTED_DEPLOYMENT.adoc[Disconnected Deployment Guide].
+
 === Yocto
 
 The images are generated in the https://github.com/seapath/yocto-bsp[yocto-bsp] repository.

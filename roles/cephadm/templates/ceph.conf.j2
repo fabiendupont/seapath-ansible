@@ -1,3 +1,13 @@
 [global]
-public_network = {{ public_network }}
-cluster_network = {{ cluster_network }}
+fsid = {{ cluster_uuid | default('') }}
+mon_initial_members = {{ groups['cluster_machines'] | map('extract', hostvars, 'hostname') | join(',') }}
+mon_host = {{ groups['cluster_machines'] | map('extract', hostvars, 'cluster_ip_addr') | join(',') }}
+public_network = {{ ceph_public_network | default(public_network) }}
+cluster_network = {{ ceph_cluster_network | default(cluster_network) }}
+auth_cluster_required = cephx
+auth_service_required = cephx
+auth_client_required = cephx
+osd_pool_default_pg_num = 128
+osd_pool_default_pgp_num = 128
+osd_pool_default_size = 3
+osd_crush_chooseleaf_type = 1

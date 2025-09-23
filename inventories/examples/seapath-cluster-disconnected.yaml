@@ -1,7 +1,6 @@
-# This inventory describes a SEAPATH cluster with two hypervisors and one observer.
-# It contains all required variables to configure and run your cluster.
+# This inventory describes a SEAPATH cluster for disconnected environments
+# The control machine hosts the registry and all container images
 # Replace all the TODOs to fit your physical machines.
-# More informations on SEAPATH Wiki: https://lf-energy.atlassian.net/wiki/x/lIblAQ
 
 ---
 cluster_machines:
@@ -87,7 +86,7 @@ cluster_machines:
     dns_servers: "192.168.200.1" # TODO : Put your dns address
     ip_addr: "{{ ansible_host }}"
     hostname: "{{ inventory_hostname }}"
-    subnet: 24 # TODO : Put your subnet mask in CIDR notation
+    subnet: 24 # TODO : Put your subnet mask in CIDR notation
     apply_network_config: true
     # systemd-networkd is used by default to configure the network
     # netplan can also be used to sum up complex network in one yaml file
@@ -103,17 +102,39 @@ cluster_machines:
     grub_password: grub.pbkdf2.sha512.10000.666FF16D5587509B2B3340B2388CB798BEF9553A9666CECA6282E0D822C1529F94AF693CC6738C1F757B868D8090F24FD48D8F56486C70C545D559CB4BAAAA3E.9718E767036BDB71CC1B82BCFC906610F8772DD4757F6F075D82A23E70DA46FBED372A3E5143E5C2D40AA888C6B884E4AA437488D82008383C54ED79D68A42CF
 
 # ------------------------------------------------------------------------------
+# ------------------- Disconnected Environment Configuration ------------------
+# ------------------------------------------------------------------------------
+
+# Registry configuration
+registry_url: "{{ ansible_default_ipv4.address }}:5000"
+registry_host: "{{ ansible_default_ipv4.address }}"
+registry_mirror_url: "{{ ansible_default_ipv4.address }}:5000"
+disconnected_mode: true
+
+# Registry security (uncomment and configure as needed)
+# registry_insecure: false
+# registry_username: "admin"
+# registry_password: "secure_password"
+# registry_ca_cert: "/path/to/registry-ca.crt"
+
+# Registry TLS (uncomment and configure as needed)
+# registry_tls_enabled: true
+# registry_tls_cert: "/path/to/registry.crt"
+# registry_tls_key: "/path/to/registry.key"
+# registry_tls_ca: "/path/to/registry-ca.crt"
+
+# Registry authentication (uncomment and configure as needed)
+# registry_auth_enabled: true
+# registry_auth_htpasswd: "/opt/seapath/registry/htpasswd"
+
+# ------------------------------------------------------------------------------
 # ------------------- Ceph configuration part ----------------------------------
 # ------------------------------------------------------------------------------
 
-# This part contains SEAPATH default ceph configuration
+# This part contains SEAPATH default ceph configuration for disconnected environments
 # Change only the TODOs, Do not change the other variables, unless you know
 # exactly what you are doing.
-    force_cephadm: false # by default seapath uses ceph-ansible, but we can use cephadm instead
-    # For external registry (disconnected mode), uncomment these:
-    # disconnected_mode: true
-    # registry_url: "192.168.200.100:5000"  # Control machine IP
-    # registry_host: "192.168.200.100"      # Control machine IP
+    force_cephadm: true # Use cephadm for disconnected environments
     ceph_origin: distro
     cluster_network: "192.168.55.0/24" # TODO : Replace by the IP range of your cluster
     #no_cluster_network: true # if this variable is defined, whatever its value, seapath won't configure the cluster network (neither with RSTP nor HSR)
@@ -191,5 +212,3 @@ rbdmirrors:
 rgwloadbalancers:
 rgws:
 standalone_machine:
-
-...

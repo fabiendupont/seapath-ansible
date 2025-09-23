@@ -40,3 +40,6 @@
   roles:
     - detect_seapath_distro
     - cephadm
+  vars:
+    registry_url: "{{ registry_url | default('localhost:5000') }}"
+    registry_host: "{{ registry_host | default('localhost') }}"

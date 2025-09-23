@@ -158,6 +158,42 @@
     name: libvirtd.service
     state: restarted
 
+- name: Configure podman registry mirroring
+  ansible.builtin.blockinfile:
+    path: /etc/containers/registries.conf
+    marker: "# {mark} ANSIBLE MANAGED BLOCK for podman registry mirroring"
+    block: |
+        [[registry]]
+        insecure = {{ registry_insecure | default(false) | lower }}
+        location = "{{ registry_host | default('localhost') }}"
+        {% if registry_ca_cert is defined and registry_ca_cert != "" %}
+        [[registry.certificate]]
+        location = "{{ registry_host | default('localhost') }}"
+        cert_file = "{{ registry_ca_cert }}"
+        {% endif %}
+        [[registry]]
+        location = "quay.io"
+        [[registry.mirror]]
+        location = "{{ registry_mirror_url }}"
+        insecure = {{ registry_insecure | default(false) | lower }}
+  when: registry_mirror_url is defined
+
+- name: Configure docker registry mirroring
+  ansible.builtin.copy:
+    content: |
+      {
+        "registry-mirrors": ["http://{{ registry_mirror_url }}"]
+      }
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  when: registry_mirror_url is defined
+- name: "Add initramfs-tools scripts: script file (LVM rebooter and log handling)"
+  ansible.builtin.copy:
+    src: initramfs-tools/scripts/
+    dest: /etc/initramfs-tools/scripts/
+    mode: '0755'
+  notify: Rebuild initramfs if necessary
+
 - name: Add rbd type to lvm.conf
   ansible.builtin.lineinfile:
     path: /etc/lvm/lvm.conf

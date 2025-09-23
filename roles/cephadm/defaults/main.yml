@@ -2,8 +2,38 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+# Cephadm installation settings
 cephadm_install: false
 cephadm_release: "19.2.2"
 cephadm_installcommon: false
 cephadm_installrepo: false
 cephadm_pullimages: false
+
+# Registry configuration
+# Registry modes:
+# - localhost:5000: Direct public registry access (default)
+# - control_node_ip:5000 + disconnected_mode=true: Control registry (mirrors quay.io)
+# - external_registry: External registry (no mirroring, direct access)
+# Note: Registry mirroring is configured by physical_machine roles using registry_mirror_url
+registry_url: "localhost:5000"
+registry_host: "localhost"
+registry_mirror_url: ""  # Set to enable registry mirroring (e.g., "control-node:5000")
+registry_insecure: false
+registry_username: ""
+registry_password: ""
+registry_ca_cert: ""
+
+# User management
+cephadm_user_id: 1001
+cephadm_group_id: 1001
+containerized_ceph_user_id: 167
+containerized_ceph_group_id: 167
+
+# Security settings
+cephadm_ssh_key_management: true
+cephadm_validate_prerequisites: true
+cephadm_health_check_retries: 60
+cephadm_health_check_delay: 10
+
+# Cluster configuration
+ceph_cluster_name: "ceph"

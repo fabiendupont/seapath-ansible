@@ -1,0 +1,207 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+- name: Ensure registry directory exists
+  ansible.builtin.file:
+    path: "{{ registry_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Ensure registry data directory exists
+  ansible.builtin.file:
+    path: "{{ registry_data_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Check if registry images already exist
+  ansible.builtin.stat:
+    path: "{{ registry_data_path }}/docker/registry/v2/repositories"
+  register: registry_images_exist
+
+- name: Pull images from public registries if not in offline mode
+  containers.podman.podman_image:
+    name: "{{ item.source }}:{{ item.tag }}"
+    state: present
+  loop: "{{ registry_images }}"
+  when: 
+    - not registry_offline_mode | default(false)
+    - not registry_images_exist.stat.exists
+    - registry_images | length > 0
+
+- name: Load images from tar files if in offline mode
+  containers.podman.podman_image:
+    name: "{{ item.source }}:{{ item.tag }}"
+    source: "{{ registry_images_path }}/{{ item.tar_file }}"
+    state: present
+  loop: "{{ registry_images }}"
+  when: 
+    - registry_offline_mode | default(false)
+    - registry_images | length > 0
+    - ansible.builtin.stat(path="{{ registry_images_path }}/{{ item.tar_file }}").stat.exists
+
+- name: Generate htpasswd file for registry authentication
+  command: htpasswd -Bbn "{{ registry_username }}" "{{ registry_password }}"
+  register: htpasswd_output
+  when: registry_auth_enabled | default(false)
+
+- name: Create htpasswd file
+  copy:
+    content: "{{ htpasswd_output.stdout }}"
+    dest: "{{ registry_path }}/htpasswd"
+    mode: '0600'
+  when: registry_auth_enabled | default(false)
+
+- name: Create registry configuration
+  template:
+    src: registry_config.yml.j2
+    dest: "{{ registry_path }}/config.yml"
+    mode: '0644'
+
+- name: Start registry container
+  containers.podman.podman_container:
+    name: "{{ registry_container_name }}"
+    image: registry:2
+    state: started
+    detach: true
+    privileged: true
+    ports:
+      - "{{ registry_port }}:5000"
+    volume:
+      - "{{ registry_data_path }}:/var/lib/registry"
+      - "{{ registry_path }}/config.yml:/etc/docker/registry/config.yml:ro"
+      - "{{ registry_path }}/htpasswd:/auth/htpasswd:ro"
+    restart_policy: always
+
+- name: Wait for registry to be ready
+  ansible.builtin.uri:
+    url: "http://localhost:{{ registry_port }}/v2/"
+    method: GET
+    status_code: 200
+  retries: 30
+  delay: 2
+  register: registry_ready
+  until: registry_ready.status == 200
+
+- name: Tag images for local registry
+  ansible.builtin.command: >
+    podman tag {{ item.source }}:{{ item.tag }} 
+    localhost:{{ registry_port }}/{{ item.name }}:{{ item.tag }}
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+  changed_when: true
+
+- name: Push images to local registry
+  ansible.builtin.command: >
+    podman push localhost:{{ registry_port }}/{{ item.name }}:{{ item.tag }}
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+  changed_when: true
+
+- name: Create registry backup script
+  ansible.builtin.template:
+    src: backup_registry.sh.j2
+    dest: "{{ registry_path }}/backup_registry.sh"
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create registry restore script
+  ansible.builtin.template:
+    src: restore_registry.sh.j2
+    dest: "{{ registry_path }}/restore_registry.sh"
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create image export script
+  ansible.builtin.template:
+    src: export_images.sh.j2
+    dest: "{{ registry_path }}/export_images.sh"
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create image import script
+  ansible.builtin.template:
+    src: import_images.sh.j2
+    dest: "{{ registry_path }}/import_images.sh"
+    mode: '0755'
+    owner: root
+    group: root
+
+# =============================================================================
+# Image Export Tasks (Ansible-based)
+# =============================================================================
+- name: Export images to tar files
+  ansible.builtin.command: >
+    podman save -o {{ registry_images_path }}/{{ item.tar_file }} 
+    {{ item.source }}:{{ item.tag }}
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+  changed_when: true
+
+- name: Create export manifest
+  ansible.builtin.copy:
+    content: |
+      {
+        "export_timestamp": "{{ ansible_date_time.iso8601 }}",
+        "registry_url": "localhost:{{ registry_port }}",
+        "images": [
+          {% for item in registry_images %}
+          {
+            "name": "{{ item.name }}:{{ item.tag }}",
+            "file": "{{ item.tar_file }}",
+            "source": "{{ item.source }}:{{ item.tag }}"
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ]
+      }
+    dest: "{{ registry_images_path }}/export_manifest.json"
+    mode: '0644'
+  when: registry_images | length > 0
+
+# =============================================================================
+# Image Import Tasks (Ansible-based)
+# =============================================================================
+- name: Validate image tar files exist
+  ansible.builtin.stat:
+    path: "{{ registry_images_path }}/{{ item.tar_file }}"
+  loop: "{{ registry_images }}"
+  register: image_files
+  when: registry_images | length > 0
+
+- name: Fail if required images are missing
+  ansible.builtin.fail:
+    msg: "Missing required image: {{ item.item.tar_file }}"
+  loop: "{{ image_files.results }}"
+  when: 
+    - registry_images | length > 0
+    - not item.stat.exists
+
+- name: Load images from tar files
+  containers.podman.podman_image:
+    name: "{{ item.source }}:{{ item.tag }}"
+    source: "{{ registry_images_path }}/{{ item.tar_file }}"
+    state: present
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+
+- name: Tag imported images for local registry
+  ansible.builtin.command: >
+    podman tag {{ item.source }}:{{ item.tag }} 
+    localhost:{{ registry_port }}/{{ item.name }}:{{ item.tag }}
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+  changed_when: true
+
+- name: Push imported images to registry
+  ansible.builtin.command: >
+    podman push localhost:{{ registry_port }}/{{ item.name }}:{{ item.tag }}
+  loop: "{{ registry_images }}"
+  when: registry_images | length > 0
+  changed_when: true
