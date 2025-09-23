@@ -1,0 +1,6 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family specific variables
+physical_machine_rebooter_conf_path: "/etc/dracut.conf.d/rebooter.conf"

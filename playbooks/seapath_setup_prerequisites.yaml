@@ -1,0 +1,186 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Consolidated prerequisites playbook for all distributions
+
+- name: Detect distribution
+  hosts:
+    - cluster_machines
+    - standalone_machine
+    - VMs
+  gather_facts: true
+  roles:
+    - detect_distribution
+
+- name: Prerequisites for RedHat family machines
+  hosts:
+    - cluster_machines
+    - standalone_machine
+    - VMs
+  become: true
+  roles:
+    - role: centos
+      when: ansible_distribution == 'CentOS'
+    - role: oraclelinux
+      when: ansible_distribution == 'OracleLinux'
+
+- name: Prerequisites for Debian family machines
+  hosts:
+    - cluster_machines
+    - standalone_machine
+    - VMs
+  become: true
+  roles:
+    - role: debian
+      when: ansible_os_family == "Debian"
+
+- name: Physical machine setup (all distributions)
+  hosts:
+    - cluster_machines
+    - standalone_machine
+  become: true
+  roles:
+    - physical_machine
+
+- name: Hypervisor setup for CentOS
+  hosts:
+    - hypervisors
+    - standalone_machine
+  become: true
+  roles:
+    - role: centos_hypervisor
+      when: ansible_distribution == 'CentOS'
+
+- name: Hypervisor setup for Debian family
+  hosts:
+    - hypervisors
+    - standalone_machine
+  become: true
+  roles:
+    - role: debian_hypervisor
+      when: ansible_os_family == "Debian"
+
+- name: Backup restore for Debian and OracleLinux
+  hosts:
+    - cluster_machines
+  become: true
+  roles:
+    - role: backup_restore
+      when: ansible_os_family in ["Debian", "RedHat"] and ansible_distribution == "OracleLinux"
+
+- name: Add admin user to haclient group
+  hosts:
+    - cluster_machines
+  become: true
+  tasks:
+    - name: Add admin user to haclient group
+      user:
+        name: "{{ admin_user }}"
+        groups: haclient
+        append: yes
+
+- name: Disable libvirt-guests.service
+  hosts:
+    - cluster_machines
+  become: true
+  tasks:
+    - name: Disable libvirt-guests.service
+      ansible.builtin.systemd:
+        name: libvirt-guests.service
+        enabled: no
+        state: stopped
+
+- name: Upload extra files
+  hosts:
+    - cluster_machines
+    - standalone_machine
+    - VMs
+  become: true
+  tasks:
+    - name: Upload extra files
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+        mode: "{{ item.mode | default('0644') }}"
+        backup: yes
+      with_items: "{{ upload_files }}"
+      when:
+        - upload_files is defined
+        - item.extract is not defined or item.extract is false
+    - name: Upload extra files and extract them
+      unarchive:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ item.owner | default('root') }}"
+        group: "{{ item.group | default('root') }}"
+        mode: "{{ item.mode | default('0644') }}"
+      with_items: "{{ upload_files }}"
+      when:
+        - upload_files is defined
+        - item.extract is defined and item.extract is true
+    - name: Run extra commands after upload
+      shell: "{{ item }}"
+      tags:
+        - skip_ansible_lint
+      loop: "{{ commands_to_run_after_upload }}"
+      when: commands_to_run_after_upload is defined
+
+- name: Remove what is not needed after installation (Debian only)
+  hosts:
+    - cluster_machines
+    - standalone_machine
+    - VMs
+  become: true
+  tasks:
+    - name: Create /etc/apt/sources.list.d/
+      file:
+        state: directory
+        path: /etc/apt/sources.list.d/
+      when: ansible_os_family == "Debian"
+    - name: Uninstall ceph packages
+      apt:
+        name:
+          - ceph
+          - ceph-base
+          - ceph-mgr
+          - ceph-mon
+          - ceph-osd
+          - ceph-volume
+        state: absent
+        purge: yes
+        autoremove: yes
+      when: 
+        - ansible_os_family == "Debian"
+        - force_cephadm | default(false)
+    - name: Uninstall apt packages not required after installation (all debian version)
+      apt:
+        name:
+          - fdisk
+          - ifupdown
+        state: absent
+        purge: yes
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+    - name: Uninstall apt packages not required after installation (only debian11)
+      apt:
+        name:
+          - libfdisk1
+        state: absent
+        purge: yes
+        autoremove: yes
+      when: 
+        - ansible_os_family == "Debian"
+        - ansible_distribution == 'Debian' and ansible_distribution_version | int < 12
+    - name: Disable unused systemd services
+      systemd:
+        unit: "{{ item }}"
+        state: stopped
+        enabled: no
+        no_block: yes
+      with_items:
+        - apt-daily-upgrade.timer
+        - apt-daily.timer
+      when: ansible_os_family == "Debian"

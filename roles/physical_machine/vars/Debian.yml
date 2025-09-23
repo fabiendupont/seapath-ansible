@@ -1,0 +1,6 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Debian family specific variables
+physical_machine_rebooter_conf_path: "/etc/initramfs-tools/conf.d/rebooter.conf"

@@ -17,17 +17,8 @@
   roles:
     - detect_distribution
 
-- name: Import seapath_setup_prerequiscentos playbook
-  import_playbook: seapath_setup_prerequiscentos.yaml
-  when: ansible_os_family == "RedHat"
-
-- name: Import seapath_setup_prerequisoraclelinux playbook
-  import_playbook: seapath_setup_prerequisoraclelinux.yaml
-  when: ansible_os_family == "RedHat"
-
-- name: Import seapath_setup_prerequisdebian playbook
-  import_playbook: seapath_setup_prerequisdebian.yaml
-  when: ansible_os_family == "Debian"
+- name: Import seapath_setup_prerequisites playbook
+  import_playbook: seapath_setup_prerequisites.yaml
 
 - name: Import seapath_setup_cockpit_plugins playbook
   import_playbook: seapath_setup_cockpit_plugins.yaml

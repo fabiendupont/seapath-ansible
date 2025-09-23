@@ -1,0 +1,160 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family specific tasks (CentOS + OracleLinux)
+
+- name: Copy Pacemaker Seapath Resource-Agent files
+  ansible.posix.synchronize:
+    src: pacemaker_ra/
+    dest: /usr/lib/ocf/resource.d/seapath/
+    rsync_opts:
+    - "--chmod=F755"
+    - "--chown=root:root"
+
+- when:
+    - services['pacemaker.service'] is defined
+  block:
+    - name: Create pacemaker.service.d directory
+      file:
+        path: /etc/systemd/system/pacemaker.service.d/
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+    - name: Copy pacemaker.service drop-in
+      template:
+        src: pacemaker_override.conf.j2
+        dest: /etc/systemd/system/pacemaker.service.d/override.conf
+        owner: root
+        group: root
+        mode: 0644
+      notify: Trigger daemon-reload
+      register: pacemaker_corosync
+    - name: Get Pacemaker service Status
+      ansible.builtin.systemd:
+        name: "pacemaker.service"
+      register: pacemaker_service_status
+    - name: Disable pacemaker (reinstall step 1/2)
+      ansible.builtin.systemd:
+        name: pacemaker.service
+        enabled: no
+      when: pacemaker_corosync.changed and pacemaker_service_status.status.UnitFileState == "enabled"
+    - name: Enable pacemaker (reinstall step 2/2)
+      ansible.builtin.systemd:
+        name: pacemaker.service
+        enabled: yes
+      when: pacemaker_corosync.changed and pacemaker_service_status.status.UnitFileState == "enabled"
+
+- name: Add extra modules to the kernel
+  block:
+    - name: Create extra modules conf file
+      ansible.builtin.file:
+        path: /etc/modules-load.d/extra_modules.conf
+        owner: root
+        group: root
+        mode: 0751
+        state: touch
+    - name: Add extra modules to conf file
+      lineinfile:
+        dest: /etc/modules-load.d/extra_modules.conf
+        state: present
+        regexp: "^{{ item }}$"
+        line: "{{ item }}"
+      with_items: "{{ extra_kernel_modules | default([]) }}"
+
+- name: Add br_netfilter to /etc/modules-load.d
+  ansible.builtin.copy:
+    src: modules/netfilter.conf
+    dest: /etc/modules-load.d/netfilter.conf
+    owner: root
+    group: root
+    mode: 0751
+
+- name: Configure initramfs-tools to use busybox
+  lineinfile:
+    dest: /etc/dracut.conf
+    regexp: "^#?BUSYBOX="
+    line: "BUSYBOX=y"
+    state: present
+  notify: Rebuild initramfs if necessary
+
+# OracleLinux specific tasks
+- name: Enable virtsecretd
+  ansible.builtin.systemd:
+    name: virtsecretd.service
+    enabled: yes
+    state: started
+  when: ansible_distribution == "OracleLinux"
+
+- name: Enable and start virtsecretd.socket
+  ansible.builtin.systemd:
+    name: virtsecretd.socket
+    state: started
+    enabled: true
+  when: ansible_distribution == "OracleLinux"
+
+- name: Enable and start virtqemud.socket
+  ansible.builtin.systemd:
+    name: virtqemud.socket
+    state: started
+    enabled: true
+  when: ansible_distribution == "OracleLinux"
+
+- name: Enable and start virtstoraged.socket
+  ansible.builtin.systemd:
+    name: virtstoraged.socket
+    state: started
+    enabled: true
+  when: ansible_distribution == "OracleLinux"
+
+- name: Add raid6_pq to /etc/modules-load.d
+  ansible.builtin.copy:
+    src: modules/raid6_pq.conf
+    dest: /etc/modules-load.d/raid6_pq.conf
+    owner: root
+    group: root
+    mode: 0751
+  when: ansible_distribution == "OracleLinux"
+
+- name: Disable lvm use_devicesfile
+  ansible.builtin.lineinfile:
+    path: /etc/lvm/lvm.conf
+    regexp: "^\\s*#?\\s*use_devicesfile\\s*=\\s*"
+    line: "        use_devicesfile = 0"
+    state: present
+  when: ansible_distribution == "OracleLinux"
+
+- name: Create a symbolic link for qemu-kvm/x86-64
+  ansible.builtin.file:
+    src: /usr/libexec/qemu-kvm
+    dest: /usr/bin/qemu-system-x86_64
+    state: link
+  when: ansible_distribution == "OracleLinux"
+
+# CentOS specific tasks
+- name: Configure firewalld for ceph
+  block:
+    - name: "Configure firewalld for ceph monitor"
+      ansible.posix.firewalld:
+        port: 3300/tcp
+        permanent: true
+        state: enabled
+    - name: "Configure firewalld for ceph monitor legacy v1 port"
+      ansible.posix.firewalld:
+        port: 6789/tcp
+        permanent: true
+        state: enabled
+    - name: "Configure firewalld for ceph OSD"
+      ansible.posix.firewalld:
+        port: 6800-7300/tcp
+        permanent: true
+        state: enabled
+  when: ansible_distribution == "CentOS"
+
+- name: Configure firewalld for high-availability services
+  ansible.posix.firewalld:
+    service: high-availability
+    permanent: true
+    state: enabled
+  when: ansible_distribution == "CentOS"
