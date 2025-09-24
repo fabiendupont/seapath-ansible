@@ -25,3 +25,11 @@ apt_repo: []         # Optional: List of apt repositories
 # SR-IOV configuration
 sriov_driver: ""  # Name of the SR-IOV driver module
 sriov: []  # List of network interfaces to configure for SR-IOV use
+
+# Network configuration
+remove_all_network_config: false  # Whether to remove all existing network configuration
+hostname: ""  # Custom hostname (defaults to inventory_hostname)
+hosts_path: ""  # Path to custom hosts file to append
+dns_servers: []  # List of DNS servers
+netplan_configurations: []  # List of netplan configuration files
+interfaces_to_wait_for: []  # List of interfaces to wait for in networkd-wait-online

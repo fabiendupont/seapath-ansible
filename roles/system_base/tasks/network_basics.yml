@@ -1,0 +1,36 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Basic network configuration tasks (from network_basics role)
+
+- name: Clean network configuration when requested
+  block:
+    - name: Wipe the network directory content 1/2, list files
+      find:
+        paths: ["/etc/systemd/network/", "/etc/netplan"]
+        patterns: "*"
+      register: network_files_to_delete
+    - name: Wipe the network directory content 2/2, remove files
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ network_files_to_delete.files }}"
+  when: remove_all_network_config | default(false)
+
+- name: Remove FAI network configuration
+  file:
+    path: "/etc/systemd/network/{{ item }}.network"
+    state: absent
+  with_items:
+    - 01-init
+    - 00-init-dhcp
+    - 00-init
+
+- name: Copy 80-wired networkd file
+  ansible.builtin.copy:
+    src: 80-wired.network
+    dest: /etc/systemd/network/80-wired.network
+    mode: '0640'
+    owner: root
+    group: systemd-network

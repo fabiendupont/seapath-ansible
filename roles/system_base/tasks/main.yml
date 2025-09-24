@@ -29,6 +29,26 @@
 - name: Configure network services
   include_tasks: network_config.yml
 
+# Basic network configuration
+- name: Configure basic network settings
+  include_tasks: network_basics.yml
+
+# Hostname and hosts file configuration
+- name: Configure hostname and hosts file
+  include_tasks: hostname_config.yml
+
+# DNS configuration
+- name: Configure DNS
+  include_tasks: dns_config.yml
+
+# Netplan configuration
+- name: Configure Netplan
+  include_tasks: netplan_config.yml
+
+# systemd-networkd-wait-online configuration
+- name: Configure networkd wait
+  include_tasks: networkd_wait.yml
+
 # Package management (Debian only)
 - name: Configure APT repositories
   include_tasks: apt_config.yml

@@ -1,0 +1,57 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# DNS configuration tasks (from network_resolved role)
+
+- name: Configure DNS when dns_servers is defined and netplan is not used
+  block:
+    - name: Configure LLMNR /etc/systemd/resolved.conf
+      lineinfile:
+        dest: /etc/systemd/resolved.conf
+        regexp: "^#?LLMNR="
+        line: "LLMNR=no"
+        state: present
+      notify: Restart systemd-resolved
+
+    - name: Configure DNS /etc/systemd/resolved.conf
+      lineinfile:
+        dest: /etc/systemd/resolved.conf
+        regexp: "^#?DNS="
+        line: "DNS={{ dns_servers | join(' ') if dns_servers is not string else dns_servers }}"
+        state: present
+      notify: Restart systemd-resolved
+
+    - name: Configure MulticastDNS /etc/systemd/resolved.conf
+      lineinfile:
+        dest: /etc/systemd/resolved.conf
+        regexp: "^#?MulticastDNS="
+        line: "MulticastDNS=no"
+        state: present
+      notify: Restart systemd-resolved
+
+    - name: Create resolv.conf stub link
+      ansible.builtin.file:
+        src: /run/systemd/resolve/resolv.conf
+        dest: /etc/resolv.conf
+        state: link
+        force: true
+      notify: Restart systemd-resolved
+
+    - name: Enable systemd-resolved
+      ansible.builtin.systemd:
+        name: systemd-resolved
+        state: started
+        enabled: true
+  when:
+    - dns_servers is defined
+    - netplan_configurations is not defined
+
+- name: Disable resolved if no dns server is defined
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: false
+  when:
+    - dns_servers is not defined
+    - ansible_os_family != "Yocto"

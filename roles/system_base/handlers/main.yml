@@ -18,3 +18,13 @@
 - name: Update Grub
   command: grub2-mkconfig -o /boot/grub2/grub.cfg
   changed_when: true
+
+- name: Restart systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    state: restarted
+    enabled: true
+
+- name: Apply Netplan configuration
+  command: netplan apply
+  changed_when: true

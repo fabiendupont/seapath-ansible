@@ -13,7 +13,7 @@
   become: true
   roles:
     - detect_distribution
-    - network_resolved
+    - system_base
   tasks:
     - name: Remove tuned dynamic tuning
       ansible.builtin.lineinfile:

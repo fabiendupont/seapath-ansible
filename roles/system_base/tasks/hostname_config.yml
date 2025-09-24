@@ -1,11 +1,14 @@
-# Copyright (C) 2024 RTE
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+# Hostname and /etc/hosts configuration tasks (from network_buildhosts role)
+
 - name: Set hostname
   hostname:
     name: "{{ hostname | default(inventory_hostname) }}"
     use: systemd
+
 - name: Build hosts file (Cluster Network)
   lineinfile:
     dest: /etc/hosts
@@ -14,6 +17,7 @@
     state: present
   loop: "{{ groups['cluster_machines'] | default([]) }}"
   when: hostvars[item].cluster_ip_addr is defined
+
 - name: Build hosts file (Public Network) 
   # if cluster_ip_addr is not defined, we consider there is no cluster Network.
   # Ceph will use the public network instead.
@@ -24,12 +28,14 @@
     state: present
   loop: "{{ groups['cluster_machines'] | default([]) }}"
   when: hostvars[item].cluster_ip_addr is undefined
+
 - name: Build hosts file for Standalone machines
   lineinfile:
     dest: /etc/hosts
     line: "{{ ip_addr | default(ansible_host) }} {{ inventory_hostname }} {{ hostname | default('') }}"
     state: present
   when: inventory_hostname in groups['standalone_machine']|default([])
+
 - name: Remove 'debian' from hosts file
   lineinfile:
     dest: /etc/hosts

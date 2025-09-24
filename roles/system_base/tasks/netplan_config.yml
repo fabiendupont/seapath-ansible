@@ -1,8 +1,10 @@
-# Copyright (C) 2024 RTE
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- when: netplan_configurations is defined
+# Netplan configuration tasks (from network_netplan role)
+
+- name: Configure Netplan when netplan_configurations is defined
   block:
     - name: Create /etc/netplan directory
       file:
@@ -11,6 +13,7 @@
         owner: root
         group: root
         mode: '0755'
+
     - name: Copy Netplan configuration file
       template:
         src: "../{{ item }}"
@@ -20,6 +23,8 @@
         mode: '0600'
       with_items: "{{ netplan_configurations }}"
       notify: Apply Netplan configuration
+
     - name: Avoid reboot for netplan
       set_fact:
         need_reboot: false
+  when: netplan_configurations is defined
