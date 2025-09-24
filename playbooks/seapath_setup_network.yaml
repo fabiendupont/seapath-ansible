@@ -25,22 +25,16 @@
         systemd_networkd_apply_config: "{{ apply_network_config | default(false) }}"
       when: netplan_configurations is not defined
 
-- name: Configure cluster network
-  hosts: cluster_machines
-  become: true
-  roles:
-    - role: network_clusternetwork
-      when: no_cluster_network is not defined
-
-- name: Configure OVS, hosts and hostname, then DNS with resolved, then systemd-networkd-wait-online.service
+- name: Configure Open vSwitch and cluster network
   hosts:
     - cluster_machines
     - standalone_machine
   become: true
   roles:
-    - role: network_configovs
+    - role: openvswitch
       vars:
         network_configovs_apply_config: "{{ apply_network_config | default(false) }}"
+      when: no_cluster_network is not defined
 
 - name: Configure sriov libvirt network pool
   hosts:

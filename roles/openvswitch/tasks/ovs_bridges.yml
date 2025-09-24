@@ -1,0 +1,86 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# OVS bridge and port management tasks
+
+- name: Initialize DPDK tracking variables
+  set_fact:
+    dpdk_interfaces: []
+    dpdk_bridges: []
+
+- name: Determine DPDK interfaces and bridges
+  set_fact:
+    dpdk_interfaces: "{{ dpdk_interfaces + [port.interface] }}"
+    dpdk_bridges: "{{ dpdk_bridges + [bridge.name] if bridge.name not in dpdk_bridges else dpdk_bridges }}"
+  with_subelements:
+    - "{{ ovs_bridges }}"
+    - ports
+    - flags: [omit]
+  when: item.type == "dpdk"
+
+- name: Configure DPDK support
+  block:
+    - name: Enable IOMMU vhost support
+      command: ovs-vsctl set Open_vSwitch . other_config:vhost-iommu-support=true
+      when: dpdk_interfaces | default([]) | length > 0
+
+    - name: Enable DPDK support
+      command: ovs-vsctl set Open_vSwitch . other_config:dpdk-init=true
+      when: dpdk_interfaces | default([]) | length > 0
+
+    - name: Disable IOMMU vhost support
+      command: ovs-vsctl set Open_vSwitch . other_config:vhost-iommu-support=false
+      when: dpdk_interfaces | default([]) | length == 0
+
+    - name: Disable DPDK support
+      command: ovs-vsctl set Open_vSwitch . other_config:dpdk-init=false
+      when: dpdk_interfaces | default([]) | length == 0
+
+- name: Bind DPDK interfaces
+  command: dpdk-devbind --force --bind=vfio-pci {{ item }}
+  loop: "{{ dpdk_interfaces | default([]) }}"
+  when: dpdk_interfaces | default([]) | length > 0
+
+- name: Create OVS bridges
+  block:
+    - name: Create DPDK bridge
+      command: ovs-vsctl -- --if-exists del-br {{ bridge.name }} -- add-br {{ bridge.name }} -- set bridge {{ bridge.name }} datapath_type=netdev
+      when: bridge.name in dpdk_bridges | default([])
+
+    - name: Create standard bridge
+      command: ovs-vsctl add-br {{ bridge.name }}
+      when: bridge.name not in dpdk_bridges | default([])
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+
+- name: Configure bridge ports
+  include_tasks: ovs_ports.yml
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.ports is defined
+
+- name: Configure bridge RSTP
+  command: ovs-vsctl set Bridge {{ bridge.name }} rstp_enable=true
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.rstp_enable is defined and bridge.rstp_enable
+
+- name: Configure bridge other_config
+  command: ovs-vsctl set Bridge {{ bridge.name }} other_config={{ item }}
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  with_items: "{{ bridge.other_config | default([]) }}"
+  when: bridge.other_config is defined
+
+- name: Apply bridge ovs-vsctl extra commands
+  command: ovs-vsctl {{ item }}
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  with_items: "{{ bridge.ovsvsctl_extra_cmds | default([]) }}"
+  when: bridge.ovsvsctl_extra_cmds is defined

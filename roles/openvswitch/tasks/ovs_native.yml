@@ -1,0 +1,59 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Native Ansible implementation of OVS configuration
+# Replaces the python3-setup-ovs tool functionality
+
+- name: Check OVS is running
+  command: ovs-vsctl show
+  register: ovs_check
+  failed_when: ovs_check.rc != 0
+  changed_when: false
+
+- name: Get existing OVS bridges
+  command: ovs-vsctl list-br
+  register: existing_bridges
+  changed_when: false
+  when: not network_configovs_apply_config
+
+- name: Clear existing OVS bridges (except ignored ones)
+  command: ovs-vsctl del-br {{ item }}
+  loop: "{{ existing_bridges.stdout_lines | difference(ignored_bridges | default(['team0'])) }}"
+  when: 
+    - not network_configovs_apply_config
+    - existing_bridges.stdout_lines is defined
+    - existing_bridges.stdout_lines | length > 0
+
+- name: Get existing TAP interfaces
+  find:
+    paths: /sys/class/net
+    patterns: "*"
+  register: existing_interfaces
+  when: not network_configovs_apply_config
+
+- name: Clear existing TAP interfaces (except ignored ones)
+  command: ip tuntap del mode tap name {{ item.path | basename }}
+  loop: "{{ existing_interfaces.files | selectattr('path', 'match', '.*') | map(attribute='path') | map('basename') | list | difference(ignored_taps | default([])) }}"
+  when:
+    - not network_configovs_apply_config
+    - existing_interfaces.files is defined
+    - item.path | basename not in ignored_taps | default([])
+  ignore_errors: true
+
+- name: Unbind PCI devices
+  shell: echo "{{ item }}" > /sys/bus/pci/drivers/{{ ansible_facts.pci_devices[item].driver }}/unbind
+  loop: "{{ unbind_pci_address | default([]) }}"
+  when: 
+    - unbind_pci_address is defined
+    - unbind_pci_address | length > 0
+    - not network_configovs_apply_config
+  ignore_errors: true
+
+- name: Configure OVS bridges and ports
+  include_tasks: ovs_bridges.yml
+  when: ovs_bridges is defined and ovs_bridges | length > 0
+
+- name: Apply OpenFlow rules
+  include_tasks: ovs_openflow.yml
+  when: ovs_bridges is defined and ovs_bridges | length > 0

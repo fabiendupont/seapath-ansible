@@ -1,0 +1,127 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Basic OpenFlow security rules implementation
+
+- name: Clear existing OpenFlow rules
+  command: ovs-ofctl del-flows {{ bridge.name }}
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.ports is defined
+
+- name: Configure port-specific OpenFlow rules
+  block:
+    - name: Add MAC spoofing protection rule (table 0, priority 40)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=0 in_port={{ port.name }} dl_src={{ port.mac }} priority=40 action=goto_table:1"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+
+    - name: Add MAC spoofing drop rule (table 0, priority 39)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=0 in_port={{ port.name }} priority=39 action=drop"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+
+    - name: Add default drop rule for port (table 1, priority 0)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 in_port={{ port.name }} priority=0 action=drop"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+
+    - name: Add IP allow rules for port (table 1, priority 20+)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 in_port={{ port.name }} ip nw_src={{ ip }} priority={{ 20 + ansible_loop.index0 }} action=normal"
+      loop: "{{ port.ip | default([]) }}"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+      loop_control:
+        loop_var: ip
+
+    - name: Add ARP protection rules for port
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 in_port={{ port.name }} arp arp_sha={{ port.mac }} arp_spa={{ ip }} priority={{ 30 + ansible_loop.index0 }} action=normal"
+      loop: "{{ port.ip | default([]) }}"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+      loop_control:
+        loop_var: ip
+
+    - name: Add DHCP drop rule for port
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 in_port={{ port.name }} udp udp_src=67 priority=40 action=drop"
+      when: 
+        - port.type in ['tap', 'dpdkvhostuserclient']
+        - port.mac is defined
+        - port.ip is defined
+
+  with_subelements:
+    - "{{ ovs_bridges }}"
+    - ports
+    - flags: [omit]
+  when: 
+    - item.type in ['tap', 'dpdkvhostuserclient']
+    - item.mac is defined
+    - item.ip is defined
+
+- name: Configure IPv6 handling
+  block:
+    - name: Add IPv6 allow rule (table 0, priority 1)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=0 ipv6 priority=1 action=normal"
+      when: bridge.enable_ipv6 is defined and bridge.enable_ipv6
+
+    - name: Add IPv6 drop rule (table 0, priority 1)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=0 ipv6 priority=1 action=drop"
+      when: bridge.enable_ipv6 is not defined or not bridge.enable_ipv6
+
+    - name: Add IPv6 allow rule (table 1, priority 1)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 ipv6 priority=1 action=normal"
+      when: bridge.enable_ipv6 is defined and bridge.enable_ipv6
+
+    - name: Add IPv6 drop rule (table 1, priority 1)
+      command: ovs-ofctl add-flow {{ bridge.name }} "table=1 ipv6 priority=1 action=drop"
+      when: bridge.enable_ipv6 is not defined or not bridge.enable_ipv6
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.ports is defined
+
+- name: Add default allow rule (table 0, priority 0)
+  command: ovs-ofctl add-flow {{ bridge.name }} "table=0 priority=0 action=normal"
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.ports is defined
+
+- name: Apply custom OpenFlow rules override
+  blockinfile:
+    path: /tmp/ovs_flows_{{ bridge.name }}.txt
+    content: "{{ bridge.flows_override }}"
+    create: yes
+    mode: '0644'
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.flows_override is defined
+
+- name: Apply custom OpenFlow rules from file
+  command: ovs-ofctl --bundle replace-flows {{ bridge.name }} /tmp/ovs_flows_{{ bridge.name }}.txt
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.flows_override is defined
+
+- name: Clean up temporary OpenFlow files
+  file:
+    path: /tmp/ovs_flows_{{ bridge.name }}.txt
+    state: absent
+  loop: "{{ ovs_bridges }}"
+  loop_control:
+    loop_var: bridge
+  when: bridge.flows_override is defined

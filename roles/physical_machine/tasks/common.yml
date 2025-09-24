@@ -38,9 +38,6 @@
   include_role:
     name: deploy_vm_manager
 
-- name: Deploy python3-setup-ovs
-  include_role:
-    name: deploy_python3_setup_ovs
 
 - name: Create /usr/lib/ocf/resource.d/seapath on hosts
   file:

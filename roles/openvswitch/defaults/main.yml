@@ -1,0 +1,24 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for openvswitch role
+# Consolidates variables from network_configovs and network_clusternetwork roles
+
+# OVS Configuration
+network_configovs_apply_config: false  # Whether to apply OVS configuration immediately
+ovs_bridges: []  # List of OVS bridges to configure
+ignored_bridges: ["team0"]  # List of bridges to ignore
+ignored_taps: []  # List of tap interfaces to ignore
+unbind_pci_address: []  # List of PCI addresses to unbind
+ovs_vsctl_cmds: []  # List of extra ovs-vsctl commands to run
+
+# Cluster Network Configuration
+cluster_protocol: ""  # Cluster protocol (HSR, etc.)
+hsr_mac_address: ""  # MAC address for HSR interface
+cluster_ip_addr: ""  # IP address for cluster network
+team0_0: ""  # First interface for team0 bridge
+team0_1: ""  # Second interface for team0 bridge
+br_rstp_priority: 16384  # RSTP priority for team0 bridge
+skip_recreate_team0_config: false  # Whether to skip team0 recreation
+interfaces_on_br0: {}  # Interfaces to configure on br0 bridge

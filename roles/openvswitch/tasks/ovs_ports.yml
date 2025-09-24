@@ -1,0 +1,116 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# OVS port management tasks
+
+- name: Create TAP interface if needed
+  command: ip tuntap add mode tap name {{ port.name }}
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  when: 
+    - port.type == "tap"
+    - not (port.name | basename in ansible_facts.interfaces)
+
+- name: Create OVS port
+  block:
+    - name: Build ovs-vsctl command for port creation
+      set_fact:
+        port_cmd: "{{ port_cmd | default([]) + ['--', '--if-exists', 'del-port', port.name, '--', 'add-port', bridge.name, port.name] }}"
+
+    - name: Add VLAN configuration to port command
+      set_fact:
+        port_cmd: "{{ port_cmd + ['vlan_mode=' + port.vlan_mode] }}"
+      when: port.vlan_mode is defined
+
+    - name: Add VLAN tag to port command
+      set_fact:
+        port_cmd: "{{ port_cmd + ['tag=' + port.tag | string] }}"
+      when: port.tag is defined
+
+    - name: Add VLAN trunks to port command
+      set_fact:
+        port_cmd: "{{ port_cmd + ['trunks=' + port.trunks | join(',')] }}"
+      when: port.trunks is defined
+
+    - name: Add interface type for non-tap/system ports
+      set_fact:
+        port_cmd: "{{ port_cmd + ['--', 'set', 'Interface', port.name, 'type=' + port.type] }}"
+      when: port.type not in ['tap', 'system']
+
+    - name: Add DPDK interface options
+      set_fact:
+        port_cmd: "{{ port_cmd + ['options:dpdk-devargs=' + port.interface] }}"
+      when: port.type == "dpdk"
+
+    - name: Add DPDK vhost-user client options
+      set_fact:
+        port_cmd: "{{ port_cmd + ['--', 'set', 'Interface', port.name, 'options:vhost-server-path=/var/run/openvswitch/vm-sockets/dpdkvhostuser_' + port.name] }}"
+      when: port.type == "dpdkvhostuserclient"
+
+    - name: Add VXLAN options
+      set_fact:
+        port_cmd: "{{ port_cmd + ['options:remote_ip=' + port.remote_ip, 'options:key=' + port.key] }}"
+      when: port.type == "vxlan"
+
+    - name: Add VXLAN remote port option
+      set_fact:
+        port_cmd: "{{ port_cmd + ['options:remote_port=' + port.remote_port | string] }}"
+      when: port.type == "vxlan" and port.remote_port is defined
+
+    - name: Add external-ids to port command
+      set_fact:
+        port_cmd: "{{ port_cmd + ['--', 'set', 'Interface', port.name, 'external-ids:' + item] }}"
+      loop: "{{ port['external-ids'] | default([]) }}"
+      when: port['external-ids'] is defined
+
+    - name: Add ofport_request to port command
+      set_fact:
+        port_cmd: "{{ port_cmd + ['--', 'set', 'Interface', port.name, 'ofport_request=' + port.ofport_request | string] }}"
+      when: port.ofport_request is defined
+
+    - name: Execute ovs-vsctl command to create port
+      command: "ovs-vsctl {{ port_cmd | join(' ') }}"
+      vars:
+        port_cmd: []
+
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+
+- name: Configure port other_config
+  command: ovs-vsctl set Port {{ port.name }} other_config={{ item }}
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  with_items: "{{ port.other_config | default([]) }}"
+  when: port.other_config is defined
+
+- name: Configure port ingress policing rate
+  command: ovs-vsctl set interface {{ port.name }} ingress_policing_rate={{ port.ingress_policing_rate }}
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  when: port.ingress_policing_rate is defined
+
+- name: Configure port ingress policing burst
+  command: ovs-vsctl set interface {{ port.name }} ingress_policing_burst={{ port.ingress_policing_burst }}
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  when: port.ingress_policing_burst is defined
+
+- name: Execute port hook files
+  command: "{{ port.hook_file }} {{ bridge.name }} {{ port.name }}"
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  when: port.hook_file is defined
+
+- name: Bring up TAP interfaces
+  command: ip link set {{ port.name }} up
+  loop: "{{ bridge.ports }}"
+  loop_control:
+    loop_var: port
+  when: port.type == "tap"

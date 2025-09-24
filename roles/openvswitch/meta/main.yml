@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: "Seapath"
+  description: "Open vSwitch configuration and management (consolidates network_configovs and network_clusternetwork)"
+  license: Apache-2.0
+  min_ansible_version: 2.9.10
+  platforms:
+    - name: EL
+      versions: [all]
+    - name: Debian
+      versions: [all]
+  galaxy_tags:
+    - network
+    - openvswitch
+    - ovs
+    - seapath
+dependencies:
+  - role: system_base
