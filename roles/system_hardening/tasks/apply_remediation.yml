@@ -1,0 +1,21 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Apply OpenSCAP-generated Ansible remediation playbook
+
+- name: Check if remediation playbook exists
+  ansible.builtin.stat:
+    path: /tmp/anssi_bp28_remediation.yml
+  register: remediation_playbook
+
+- name: Apply ANSSI BP-28 remediation playbook
+  ansible.builtin.shell: ansible-playbook /tmp/anssi_bp28_remediation.yml
+  register: remediation_result
+  changed_when: remediation_result.rc == 0
+  when: remediation_playbook.stat.exists
+
+- name: Display remediation results
+  ansible.builtin.debug:
+    msg: "Remediation completed with exit code {{ remediation_result.rc }}"
+  when: remediation_playbook.stat.exists

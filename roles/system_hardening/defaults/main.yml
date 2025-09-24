@@ -7,6 +7,10 @@
 
 # Hardening control
 revert: false  # Set to true to revert hardening changes
+assessment_only: false  # Set to true to only assess compliance without remediation
+
+# ANSSI BP-28 hardening level
+hardening_level: "high"  # Options: "minimal", "enhanced", "high" (SEAPATH targets HIGH level)
 
 # GRUB configuration
 grub_password: ""  # Optional: GRUB password for boot protection

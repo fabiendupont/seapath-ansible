@@ -2,7 +2,7 @@
 # Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 #
-# ANSSI BP-28 hardening script for RedHat family distributions
+# ANSSI BP-28 hardening script for all distributions
 # Based on OpenSCAP SCAP Security Guide profiles
 
 set -e
@@ -37,27 +37,53 @@ if [ ! -d "/usr/share/xml/scap/ssg/content" ]; then
     exit 1
 fi
 
-log_info "Starting ANSSI BP-28 hardening for RedHat family..."
+log_info "Starting ANSSI BP-28 hardening for {{ ansible_distribution }}..."
 
-# Determine the appropriate profile based on distribution
-{% if ansible_distribution == "CentOS" %}
-PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
-{% elif ansible_distribution == "OracleLinux" %}
+# Determine the appropriate profile based on distribution and hardening level
+{% if hardening_level == "enhanced" %}
+PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_enhanced"
+{% elif hardening_level == "high" %}
 PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
 {% else %}
-PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
+PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_enhanced"
 {% endif %}
 
-# Find the appropriate datastream
-DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-{{ ansible_distribution | lower }}{{ ansible_distribution_major_version }}.xml"
+log_info "Using ANSSI BP-28 profile: $PROFILE"
 
+# Find the appropriate datastream based on distribution
+{% if ansible_os_family == "Debian" %}
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-debian{{ ansible_distribution_major_version }}.xml"
+{% elif ansible_distribution == "CentOS" %}
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-centos{{ ansible_distribution_major_version }}.xml"
+{% elif ansible_distribution == "OracleLinux" %}
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-ol{{ ansible_distribution_major_version }}.xml"
+{% elif ansible_os_family == "Yocto" %}
+# For Yocto, try generic datastreams since it's typically based on Debian or RHEL
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel.xml"
+{% else %}
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel{{ ansible_distribution_major_version }}.xml"
+{% endif %}
+
+# Fallback to generic datastreams if specific one not found
 if [ ! -f "$DATASTREAM" ]; then
-    log_warn "Specific datastream not found, trying generic RHEL datastream..."
-    DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel{{ ansible_distribution_major_version }}.xml"
+    log_warn "Specific datastream not found, trying fallback options..."
+    {% if ansible_os_family == "Debian" %}
+    DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-debian.xml"
+    {% elif ansible_os_family == "Yocto" %}
+    # Try Debian first, then RHEL for Yocto
+    DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-debian.xml"
+    if [ ! -f "$DATASTREAM" ]; then
+        DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel.xml"
+    fi
+    {% else %}
+    DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel.xml"
+    {% endif %}
 fi
 
 if [ ! -f "$DATASTREAM" ]; then
     log_error "No suitable SCAP datastream found for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+    log_info "Available datastreams:"
+    ls -la /usr/share/xml/scap/ssg/content/ssg-*.xml 2>/dev/null || true
     exit 1
 fi
 
@@ -67,7 +93,24 @@ log_info "Using profile: $PROFILE"
 # Create remediation script
 REMEDIATION_SCRIPT="/tmp/anssi_bp28_remediation.sh"
 
-log_info "Generating remediation script..."
+# Perform compliance assessment first
+log_info "Performing ANSSI BP-28 compliance assessment..."
+ASSESSMENT_RESULTS="/tmp/anssi_bp28_assessment.xml"
+oscap xccdf eval \
+    --profile "$PROFILE" \
+    --results "$ASSESSMENT_RESULTS" \
+    --report "/tmp/anssi_bp28_report.html" \
+    "$DATASTREAM"
+
+if [ $? -eq 0 ]; then
+    log_info "Compliance assessment completed successfully"
+    log_info "Assessment report saved to: /tmp/anssi_bp28_report.html"
+else
+    log_warn "Compliance assessment completed with issues"
+fi
+
+# Generate remediation script
+log_info "Generating ANSSI BP-28 remediation script..."
 oscap xccdf generate fix \
     --profile "$PROFILE" \
     --output "$REMEDIATION_SCRIPT" \
@@ -81,6 +124,10 @@ fi
 # Make the script executable
 chmod +x "$REMEDIATION_SCRIPT"
 
+# Show what will be remediated
+log_info "Remediation script generated. Preview of changes:"
+head -20 "$REMEDIATION_SCRIPT" | grep -E "(chmod|chown|install|remove|enable|disable)" || true
+
 # Apply the remediation
 log_info "Applying ANSSI BP-28 hardening rules..."
 bash "$REMEDIATION_SCRIPT"
@@ -91,12 +138,29 @@ else
     log_warn "Some hardening rules may have failed to apply"
 fi
 
-# Clean up
+# Verify remediation
+log_info "Verifying ANSSI BP-28 compliance after remediation..."
+VERIFICATION_RESULTS="/tmp/anssi_bp28_verification.xml"
+oscap xccdf eval \
+    --profile "$PROFILE" \
+    --results "$VERIFICATION_RESULTS" \
+    --report "/tmp/anssi_bp28_verification_report.html" \
+    "$DATASTREAM"
+
+if [ $? -eq 0 ]; then
+    log_info "Post-remediation verification completed successfully"
+    log_info "Verification report saved to: /tmp/anssi_bp28_verification_report.html"
+else
+    log_warn "Post-remediation verification found remaining issues"
+fi
+
+# Clean up temporary files
 rm -f "$REMEDIATION_SCRIPT"
 
-# Additional RedHat-specific hardening
-log_info "Applying additional RedHat-specific hardening..."
+# Additional distribution-specific hardening
+log_info "Applying additional {{ ansible_distribution }}-specific hardening..."
 
+{% if ansible_os_family == "RedHat" %}
 # Configure SELinux if available
 if command -v setsebool &> /dev/null; then
     log_info "Configuring SELinux settings..."
@@ -112,5 +176,44 @@ if command -v firewall-cmd &> /dev/null; then
     firewall-cmd --permanent --add-service=ssh || true
     firewall-cmd --reload || true
 fi
+{% elif ansible_os_family == "Debian" %}
+# Configure ufw if available
+if command -v ufw &> /dev/null; then
+    log_info "Configuring UFW firewall settings..."
+    ufw --force enable || true
+    ufw allow ssh || true
+fi
 
-log_info "ANSSI BP-28 hardening completed for RedHat family"
+# Configure AppArmor if available
+if command -v aa-enforce &> /dev/null; then
+    log_info "Configuring AppArmor settings..."
+    aa-enforce /etc/apparmor.d/* || true
+fi
+{% elif ansible_os_family == "Yocto" %}
+# For Yocto, check if meta-security-compliance layer was used
+log_info "Checking for meta-security-compliance layer integration..."
+
+# Check if OpenSCAP was built with meta-security-compliance
+if [ -f "/usr/share/xml/scap/ssg/content/ssg-rhel.xml" ] || [ -f "/usr/share/xml/scap/ssg/content/ssg-debian.xml" ]; then
+    log_info "OpenSCAP with SCAP Security Guide found - applying runtime remediation"
+else
+    log_warn "OpenSCAP or SCAP Security Guide not found. Consider adding meta-security-compliance layer to your Yocto build"
+    log_info "To add meta-security-compliance to your Yocto build:"
+    log_info "1. Add meta-security-compliance layer to your bblayers.conf"
+    log_info "2. Add 'IMAGE_INSTALL_append = \" openscap scap-security-guide\"' to your local.conf"
+    log_info "3. Rebuild your image"
+fi
+
+# Configure basic security features available in Yocto
+if command -v iptables &> /dev/null; then
+    log_info "Configuring iptables firewall..."
+    iptables -P INPUT DROP || true
+    iptables -P FORWARD DROP || true
+    iptables -P OUTPUT ACCEPT || true
+    iptables -A INPUT -i lo -j ACCEPT || true
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT || true
+    iptables -A INPUT -p tcp --dport 22 -j ACCEPT || true
+fi
+{% endif %}
+
+log_info "ANSSI BP-28 hardening completed for {{ ansible_distribution }}"

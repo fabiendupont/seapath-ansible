@@ -11,6 +11,7 @@
     - VMs
   vars:
     revert: false
+    hardening_level: "high"  # Options: minimal, enhanced, high (SEAPATH targets HIGH level)
   roles:
     - system_hardening
 

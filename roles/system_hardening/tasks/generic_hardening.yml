@@ -1,0 +1,144 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Generic hardening tasks for non-RedHat distributions
+# These are covered by Red Hat ANSSI BP-28 roles for RedHat family
+
+- name: Configure password policies
+  ansible.builtin.lineinfile:
+    dest: /etc/login.defs
+    regexp: "^{{ item }}$"
+    line: "{{ item }}"
+    state: present
+  loop:
+    - PASS_MAX_DAYS 90
+  when: not revert
+
+- name: Remove password policies
+  ansible.builtin.lineinfile:
+    dest: /etc/login.defs
+    regexp: "^{{ item }}$"
+    state: absent
+  loop:
+    - PASS_MAX_DAYS 90
+  when: revert
+
+- name: Configure auditd rules
+  ansible.builtin.copy:
+    src: auditd/audit.rules
+    dest: /etc/audit/rules.d/audit.rules
+  when: not revert
+
+- name: Remove auditd rules
+  ansible.builtin.file:
+    path: /etc/audit/rules.d/audit.rules
+    state: absent
+  when: revert
+
+- name: Configure auditd syslog
+  ansible.builtin.copy:
+    src: auditd/syslog.conf
+    dest: /etc/audit/plugins.d/syslog.conf
+  when: not revert
+
+- name: Remove auditd syslog
+  ansible.builtin.file:
+    path: /etc/audit/plugins.d/syslog.conf
+    state: absent
+  when: revert
+
+- name: Configure hardened PAM su
+  ansible.builtin.copy:
+    src: hardened_pam_su
+    dest: /etc/pam.d/su
+  when: not revert
+
+- name: Restore default PAM su
+  ansible.builtin.copy:
+    src: default_pam_su
+    dest: /etc/pam.d/su
+  when: revert
+
+- name: Configure hardened PAM su-l
+  ansible.builtin.copy:
+    src: hardened_pam_su
+    dest: /etc/pam.d/su-l
+  when: not revert
+
+- name: Restore default PAM su-l
+  ansible.builtin.copy:
+    src: default_pam_su-l
+    dest: /etc/pam.d/su-l
+  when: revert
+
+- name: Configure security sudoers
+  ansible.builtin.copy:
+    src: sudoers/security
+    dest: /etc/sudoers.d/security
+  when: not revert
+
+- name: Remove security sudoers
+  ansible.builtin.file:
+    path: /etc/sudoers.d/security
+    state: absent
+  when: revert
+
+- name: Configure sysctl hardening
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/sysctl.d/{{ item }}"
+  loop:
+    - sysctl/90-sysctl-hardening.conf
+    - sysctl/99-sysctl-network.conf
+  when: not revert
+
+- name: Remove sysctl hardening
+  ansible.builtin.file:
+    path: "/etc/sysctl.d/{{ item }}"
+    state: absent
+  loop:
+    - sysctl/90-sysctl-hardening.conf
+    - sysctl/99-sysctl-network.conf
+  when: revert
+
+- name: Apply sysctl settings
+  ansible.builtin.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: "net.ipv4.ip_forward", value: "0" }
+    - { name: "net.ipv4.conf.all.send_redirects", value: "0" }
+    - { name: "net.ipv4.conf.default.send_redirects", value: "0" }
+    - { name: "net.ipv4.conf.all.accept_redirects", value: "0" }
+    - { name: "net.ipv4.conf.default.accept_redirects", value: "0" }
+    - { name: "net.ipv4.conf.all.accept_source_route", value: "0" }
+    - { name: "net.ipv4.conf.default.accept_source_route", value: "0" }
+    - { name: "net.ipv4.conf.all.log_martians", value: "1" }
+    - { name: "net.ipv4.conf.default.log_martians", value: "1" }
+    - { name: "net.ipv4.icmp_echo_ignore_broadcasts", value: "1" }
+    - { name: "net.ipv4.icmp_ignore_bogus_error_responses", value: "1" }
+    - { name: "net.ipv4.tcp_syncookies", value: "1" }
+    - { name: "net.ipv6.conf.all.accept_redirects", value: "0" }
+    - { name: "net.ipv6.conf.default.accept_redirects", value: "0" }
+    - { name: "net.ipv6.conf.all.accept_source_route", value: "0" }
+    - { name: "net.ipv6.conf.default.accept_source_route", value: "0" }
+  when: not revert
+
+- name: Configure SSH hardening
+  ansible.builtin.template:
+    src: ssh-audit_hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes
+  when: not revert
+
+- name: Remove SSH hardening
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/99-hardening.conf
+    state: absent
+  when: revert

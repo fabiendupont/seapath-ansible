@@ -8,6 +8,12 @@ roles:
       src: "https://github.com/seapath/ansible-role-systemd-networkd"
       scm: git
       version: "c8f87c6d9a7e01ba86b4ec6bb22466de1f95d3bf"
+    
+    # Red Hat ANSSI BP-28 High roles for different RHEL versions
+    - name: "RedHatOfficial.rhel8_anssi_bp28_high"
+      version: "latest"
+    - name: "RedHatOfficial.rhel9_anssi_bp28_high"
+      version: "latest"
 
 collections:
     - name: "community.libvirt"

@@ -2,21 +2,44 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-# System hardening based on ANSSI BP-28 baseline
+# System hardening based on ANSSI BP-28 baseline using OpenSCAP
+# 
+# Hardening Flow:
+# 1. RedHat RHEL8/9: Official Red Hat ANSSI BP-28 roles + SEAPATH hardening
+# 2. Other distributions: Custom OpenSCAP + SEAPATH hardening + Generic hardening
+# 3. Assessment mode: Compliance assessment only (no remediation)
 
 # Include OS family-specific variables
 - include_vars: "{{ ansible_os_family }}.yml"
 
-# Debian/Ubuntu hardening (existing ANSSI BP-28 implementation)
-- name: Apply Debian hardening
-  include_tasks: debian_hardening.yml
-  when: ansible_os_family == "Debian"
+# Use Red Hat's official ANSSI BP-28 High role for supported RHEL versions
+- name: Apply Red Hat ANSSI BP-28 High hardening for RHEL8
+  ansible.builtin.include_role:
+    name: "RedHatOfficial.rhel{{ ansible_distribution_major_version }}_anssi_bp28_high"
+  when: 
+    - not assessment_only | default(false)
+    - ansible_os_family == "RedHat"
 
-# RedHat/CentOS/OracleLinux hardening (OpenSCAP-based)
-- name: Apply RedHat hardening
-  include_tasks: redhat_hardening.yml
-  when: ansible_os_family == "RedHat"
+# Use custom OpenSCAP hardening for non-RedHat distributions only
+- name: Apply custom OpenSCAP hardening
+  include_tasks: openscap_hardening.yml
+  when: 
+    - not assessment_only | default(false)
+    - ansible_os_family != "RedHat"
 
-# Common hardening tasks (cross-platform)
-- name: Apply common hardening
-  include_tasks: common_hardening.yml
+# Assessment-only mode (custom for all distributions)
+- name: Perform ANSSI BP-28 compliance assessment
+  include_tasks: assessment_only.yml
+  when: assessment_only | default(false)
+
+# SEAPATH-specific hardening (always applied to all distributions)
+- name: Apply SEAPATH-specific hardening
+  include_tasks: seapath_hardening.yml
+  when: not assessment_only | default(false)
+
+# Generic hardening (only for non-RedHat distributions)
+- name: Apply generic hardening
+  include_tasks: generic_hardening.yml
+  when: 
+    - not assessment_only | default(false)
+    - ansible_os_family != "RedHat"

@@ -1,0 +1,30 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Yocto specific variables for system_hardening
+
+# OpenSCAP packages for Yocto (from meta-security-compliance layer)
+openscap_packages:
+  - openscap
+  - scap-security-guide
+
+# Distribution-specific paths
+sudoers_path: /etc/sudoers
+grub_password_path: /etc/grub.d/01_password
+grub_update_command: update-grub
+
+# SCAP datastream path (try Debian first, then RHEL for Yocto)
+scap_datastream_path: "/usr/share/xml/scap/ssg/content/ssg-debian.xml"
+scap_datastream_fallback: "/usr/share/xml/scap/ssg/content/ssg-rhel.xml"
+
+# Services to harden on Yocto (OVS hardening moved to openvswitch role)
+hardened_services:
+  - syslog-ng
+  - corosync
+  - pacemaker
+  - ceph-crash
+
+# Yocto-specific hardening options
+enable_build_time_hardening: true  # Pre-harden during build
+enable_runtime_assessment: true    # Perform compliance assessment

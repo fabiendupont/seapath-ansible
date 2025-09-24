@@ -9,6 +9,8 @@ galaxy_info:
       versions: [all]
     - name: Debian
       versions: [all]
+    - name: Yocto
+      versions: [all]
   galaxy_tags:
     - security
     - hardening
@@ -17,3 +19,8 @@ galaxy_info:
     - seapath
 dependencies:
   - role: system_base
+  # Red Hat ANSSI BP-28 roles for different RHEL versions
+  - name: RedHatOfficial.rhel8_anssi_bp28_high
+    version: ">=0.1.72"
+  - name: RedHatOfficial.rhel9_anssi_bp28_high
+    version: ">=0.1.72"

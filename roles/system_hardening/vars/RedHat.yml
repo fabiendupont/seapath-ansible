@@ -4,14 +4,26 @@
 ---
 # RedHat family specific variables for system_hardening
 
-# OpenSCAP profile for RedHat family
-openscap_profile: "anssi_bp28_high"
+# Red Hat ANSSI BP-28 roles are now declared as dependencies in meta/main.yml
 
-# Services to harden on RedHat
+# OpenSCAP packages for RedHat family (fallback for unsupported versions)
+openscap_packages:
+  - openscap-scanner
+  - scap-security-guide
+  - python3-lxml
+
+# Distribution-specific paths
+sudoers_path: /etc/sudoers
+grub_password_path: /etc/grub.d/01_password
+grub_update_command: grub2-mkconfig -o /boot/grub2/grub.cfg
+
+# SCAP datastream path
+scap_datastream_path: "/usr/share/xml/scap/ssg/content/ssg-rhel{{ ansible_distribution_major_version }}.xml"
+scap_datastream_fallback: "/usr/share/xml/scap/ssg/content/ssg-rhel.xml"
+
+# Services to harden on RedHat (OVS hardening moved to openvswitch role)
 hardened_services:
   - syslog-ng
-  - ovs-vswitchd
-  - ovsdb-server
   - corosync
   - pacemaker
   - ceph-crash

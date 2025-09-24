@@ -1,0 +1,135 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Unified OpenSCAP-based hardening for all distributions using native Ansible
+
+- name: Install OpenSCAP packages
+  ansible.builtin.package:
+    name: "{{ openscap_packages }}"
+    state: present
+
+- name: Determine ANSSI BP-28 profile
+  ansible.builtin.set_fact:
+    anssi_profile: "xccdf_org.ssgproject.content_profile_anssi_bp28_{{ hardening_level }}"
+
+- name: Check if primary SCAP datastream exists
+  ansible.builtin.stat:
+    path: "{{ scap_datastream_path }}"
+  register: primary_datastream
+
+- name: Check if fallback SCAP datastream exists
+  ansible.builtin.stat:
+    path: "{{ scap_datastream_fallback }}"
+  register: fallback_datastream
+
+- name: Determine SCAP datastream path
+  ansible.builtin.set_fact:
+    scap_datastream: "{{ scap_datastream_path if primary_datastream.stat.exists else scap_datastream_fallback }}"
+
+- name: Validate SCAP datastream exists
+  ansible.builtin.fail:
+    msg: "No suitable SCAP datastream found. Expected: {{ scap_datastream_path }} or {{ scap_datastream_fallback }}"
+  when: not primary_datastream.stat.exists and not fallback_datastream.stat.exists
+
+- name: Perform ANSSI BP-28 compliance assessment
+  ansible.builtin.command: >
+    oscap xccdf eval
+    --profile {{ anssi_profile }}
+    --results /tmp/anssi_bp28_assessment.xml
+    --report /tmp/anssi_bp28_report.html
+    {{ scap_datastream }}
+  register: assessment_result
+  changed_when: false
+  failed_when: false
+
+- name: Display assessment results
+  ansible.builtin.debug:
+    msg: "ANSSI BP-28 assessment completed with exit code {{ assessment_result.rc }}"
+
+- name: Generate ANSSI BP-28 remediation playbook
+  ansible.builtin.command: >
+    oscap xccdf generate fix
+    --fix-type ansible
+    --profile {{ anssi_profile }}
+    --output /tmp/anssi_bp28_remediation.yml
+    {{ scap_datastream }}
+  register: remediation_generation
+  changed_when: remediation_generation.rc == 0
+
+- name: Preview remediation playbook
+  ansible.builtin.shell: head -30 /tmp/anssi_bp28_remediation.yml
+  register: remediation_preview
+  changed_when: false
+
+- name: Display remediation playbook preview
+  ansible.builtin.debug:
+    msg: "{{ remediation_preview.stdout_lines }}"
+
+- name: Apply ANSSI BP-28 remediation playbook
+  ansible.builtin.include_tasks: apply_remediation.yml
+
+- name: Verify ANSSI BP-28 compliance after remediation
+  ansible.builtin.command: >
+    oscap xccdf eval
+    --profile {{ anssi_profile }}
+    --results /tmp/anssi_bp28_verification.xml
+    --report /tmp/anssi_bp28_verification_report.html
+    {{ scap_datastream }}
+  register: verification_result
+  changed_when: false
+  failed_when: false
+
+- name: Display verification results
+  ansible.builtin.debug:
+    msg: "ANSSI BP-28 verification completed with exit code {{ verification_result.rc }}"
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/anssi_bp28_remediation.yml
+
+- name: Configure sudo for privileged group
+  ansible.builtin.lineinfile:
+    path: "{{ sudoers_path }}"
+    regexp: '^%privileged'
+    line: '%privileged ALL=(ALL) NOPASSWD: ALL'
+    state: present
+  when: not revert
+
+- name: Remove privileged group sudo access
+  ansible.builtin.lineinfile:
+    path: "{{ sudoers_path }}"
+    regexp: '^%privileged'
+    state: absent
+  when: revert
+
+- name: Add users to privileged group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: privileged
+    append: yes
+  loop:
+    - "{{ admin_user }}"
+    - ansible
+  when: not revert
+
+- name: Configure GRUB password
+  ansible.builtin.template:
+    src: grub_password.j2
+    dest: "{{ grub_password_path }}"
+    mode: '0755'
+  when: not revert and grub_password is defined
+
+- name: Remove GRUB password
+  ansible.builtin.file:
+    path: "{{ grub_password_path }}"
+    state: absent
+  when: revert
+
+- name: Update GRUB configuration
+  ansible.builtin.command: "{{ grub_update_command }}"
+  changed_when: true
+  when: grub_password is defined

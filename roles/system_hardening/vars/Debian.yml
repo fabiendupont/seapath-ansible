@@ -4,26 +4,27 @@
 ---
 # Debian/Ubuntu specific variables for system_hardening
 
-# Kernel parameters specific to Debian
-hardening_kernel_params:
-  - init_on_alloc=1
-  - init_on_free=1
-  - slab_nomerge
-  - pti=on
-  - slub_debug=ZF
-  - randomize_kstack_offset=on
-  - slab_common.usercopy_fallback=N
-  - iommu=pt
-  - security=yama
-  - mce=0
-  - rng_core.default_quality=500
-  - lsm=apparmor,lockdown,capability,landlock,yama,bpf,integrity
+# OpenSCAP packages for Debian
+openscap_packages:
+  - openscap-scanner
+  - ssg-base
+  - ssg-debderived
+  - ssg-debian
+  - ssg-nondebian
+  - ssg-applications
 
-# Services to harden on Debian
+# Distribution-specific paths
+sudoers_path: /etc/sudoers
+grub_password_path: /etc/grub.d/01_password
+grub_update_command: update-grub
+
+# SCAP datastream path
+scap_datastream_path: "/usr/share/xml/scap/ssg/content/ssg-debian{{ ansible_distribution_major_version }}.xml"
+scap_datastream_fallback: "/usr/share/xml/scap/ssg/content/ssg-debian.xml"
+
+# Services to harden on Debian (OVS hardening moved to openvswitch role)
 hardened_services:
   - syslog-ng
-  - ovs-vswitchd
-  - ovsdb-server
   - corosync
   - pacemaker
   - ceph-crash

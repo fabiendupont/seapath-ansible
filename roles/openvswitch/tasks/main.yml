@@ -9,6 +9,10 @@
 - name: Configure Open vSwitch (Native Ansible)
   include_tasks: ovs_native.yml
 
+# OVS service hardening
+- name: Apply OVS service hardening
+  include_tasks: ovs_hardening.yml
+
 # Cluster network configuration (HSR/RSTP)
 - name: Configure cluster network
   include_tasks: cluster_network.yml

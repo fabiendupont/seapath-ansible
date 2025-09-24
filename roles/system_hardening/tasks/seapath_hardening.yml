@@ -2,28 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-# Common hardening tasks applicable to all distributions
+# SEAPATH-specific hardening tasks applicable to all distributions
+# These are SEAPATH-specific security features not covered by generic hardening
 
-- name: Configure password policies
-  ansible.builtin.lineinfile:
-    dest: /etc/login.defs
-    regexp: "^{{ item }}$"
-    line: "{{ item }}"
-    state: present
-  loop:
-    - PASS_MAX_DAYS 90
-  when: not revert
-
-- name: Remove password policies
-  ansible.builtin.lineinfile:
-    dest: /etc/login.defs
-    regexp: "^{{ item }}$"
-    state: absent
-  loop:
-    - PASS_MAX_DAYS 90
-  when: revert
-
-- name: Configure systemd service hardening
+- name: Configure SEAPATH systemd service hardening
   ansible.builtin.file:
     path: "/etc/systemd/system/{{ item }}.service.d/"
     state: directory
@@ -32,14 +14,14 @@
     mode: 0755
   loop: "{{ hardened_services }}"
 
-- name: Apply systemd service hardening rules
+- name: Apply SEAPATH systemd service hardening rules
   ansible.builtin.copy:
     src: "{{ item }}_hardening.conf"
     dest: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
   loop: "{{ hardened_services }}"
   when: not revert
 
-- name: Remove systemd service hardening rules
+- name: Remove SEAPATH systemd service hardening rules
   ansible.builtin.file:
     path: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
     state: absent
@@ -107,3 +89,23 @@
     path: /etc/sudoers.d/cockpit
     state: absent
   when: revert and cockpit_installed | default(false)
+
+- name: Configure GRUB password protection
+  ansible.builtin.template:
+    src: 01_password.j2
+    dest: "{{ grub_password_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+    backup: yes
+  when: not revert and grub_password | length > 0
+
+- name: Remove GRUB password protection
+  ansible.builtin.file:
+    path: "{{ grub_password_path }}"
+    state: absent
+  when: revert
+
+- name: Update GRUB configuration
+  ansible.builtin.command: "{{ grub_update_command }}"
+  when: not revert and grub_password | length > 0

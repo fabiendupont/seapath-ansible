@@ -1,0 +1,98 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# ANSSI BP-28 compliance assessment without remediation using native Ansible
+
+- name: Install OpenSCAP packages
+  ansible.builtin.package:
+    name: "{{ openscap_packages }}"
+    state: present
+
+- name: Determine ANSSI BP-28 profile
+  ansible.builtin.set_fact:
+    anssi_profile: "xccdf_org.ssgproject.content_profile_anssi_bp28_{{ hardening_level }}"
+
+- name: Check if primary SCAP datastream exists
+  ansible.builtin.stat:
+    path: "{{ scap_datastream_path }}"
+  register: primary_datastream
+
+- name: Check if fallback SCAP datastream exists
+  ansible.builtin.stat:
+    path: "{{ scap_datastream_fallback }}"
+  register: fallback_datastream
+
+- name: Determine SCAP datastream path
+  ansible.builtin.set_fact:
+    scap_datastream: "{{ scap_datastream_path if primary_datastream.stat.exists else scap_datastream_fallback }}"
+
+- name: Validate SCAP datastream exists
+  ansible.builtin.fail:
+    msg: "No suitable SCAP datastream found. Expected: {{ scap_datastream_path }} or {{ scap_datastream_fallback }}"
+  when: not primary_datastream.stat.exists and not fallback_datastream.stat.exists
+
+- name: Perform ANSSI BP-28 compliance assessment
+  ansible.builtin.command: >
+    oscap xccdf eval
+    --profile {{ anssi_profile }}
+    --results /tmp/anssi_bp28_assessment.xml
+    --report /tmp/anssi_bp28_report.html
+    {{ scap_datastream }}
+  register: assessment_result
+  changed_when: false
+  failed_when: false
+
+- name: Extract compliance statistics
+  ansible.builtin.shell: |
+    oscap xccdf eval --profile {{ anssi_profile }} --results /tmp/anssi_bp28_assessment.xml {{ scap_datastream }} 2>/dev/null | \
+    awk '
+    /Rule/ { total++ }
+    /pass/ { passed++ }
+    /fail/ { failed++ }
+    /notapplicable/ { notapplicable++ }
+    END {
+      print "total=" total
+      print "passed=" passed
+      print "failed=" failed
+      print "notapplicable=" notapplicable
+      if (total > 0) print "compliance_percent=" int(passed * 100 / total)
+    }'
+  register: compliance_stats
+  changed_when: false
+  failed_when: false
+
+- name: Parse compliance statistics
+  ansible.builtin.set_fact:
+    compliance_data: "{{ compliance_stats.stdout | from_yaml }}"
+
+- name: Display compliance summary
+  ansible.builtin.debug:
+    msg: |
+      ANSSI BP-28 Compliance Summary:
+        Profile: {{ anssi_profile }}
+        Total Rules: {{ compliance_data.total | default(0) }}
+        Passed: {{ compliance_data.passed | default(0) }}
+        Failed: {{ compliance_data.failed | default(0) }}
+        Not Applicable: {{ compliance_data.notapplicable | default(0) }}
+        Compliance: {{ compliance_data.compliance_percent | default(0) }}%
+
+- name: Extract failed rules
+  ansible.builtin.shell: |
+    oscap xccdf eval --profile {{ anssi_profile }} --results /tmp/anssi_bp28_assessment.xml {{ scap_datastream }} 2>/dev/null | \
+    grep "fail" | head -10
+  register: failed_rules
+  changed_when: false
+  failed_when: false
+
+- name: Display failed rules
+  ansible.builtin.debug:
+    msg: "Failed rules requiring attention: {{ failed_rules.stdout_lines }}"
+  when: failed_rules.stdout_lines | length > 0
+
+- name: Display assessment results
+  ansible.builtin.debug:
+    msg: |
+      Assessment completed with exit code {{ assessment_result.rc }}
+      Detailed report saved to: /tmp/anssi_bp28_report.html
+      Raw results saved to: /tmp/anssi_bp28_assessment.xml

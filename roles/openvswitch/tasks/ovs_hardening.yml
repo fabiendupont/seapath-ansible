@@ -1,0 +1,38 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Open vSwitch service hardening configuration
+
+- name: Configure OVS systemd service hardening directories
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d/"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  loop:
+    - ovs-vswitchd
+    - ovsdb-server
+
+- name: Apply OVS systemd service hardening rules
+  ansible.builtin.copy:
+    src: "{{ item }}_hardening.conf"
+    dest: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
+  loop:
+    - ovs-vswitchd
+    - ovsdb-server
+  when: not revert | default(false)
+
+- name: Remove OVS systemd service hardening rules
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
+    state: absent
+  loop:
+    - ovs-vswitchd
+    - ovsdb-server
+  when: revert | default(false)
+
+- name: Reload systemd daemon after OVS hardening
+  ansible.builtin.systemd:
+    daemon_reload: yes
