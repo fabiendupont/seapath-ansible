@@ -1,0 +1,23 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Handlers for system_hardening role
+
+- name: Update sysfs values using sysctl
+  ansible.builtin.command: sysctl --system
+  changed_when: true
+
+- name: Restart SSH service
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+
+- name: Restart auditd service
+  ansible.builtin.systemd:
+    name: auditd
+    state: restarted
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes

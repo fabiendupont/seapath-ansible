@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: "Seapath"
+  description: "System hardening based on ANSSI BP-28 baseline (consolidates debian_hardening and debian_hardening_physical_machine with RedHat OpenSCAP support)"
+  license: Apache-2.0
+  min_ansible_version: 2.9.10
+  platforms:
+    - name: EL
+      versions: [all]
+    - name: Debian
+      versions: [all]
+  galaxy_tags:
+    - security
+    - hardening
+    - anssi-bp28
+    - openscap
+    - seapath
+dependencies:
+  - role: system_base

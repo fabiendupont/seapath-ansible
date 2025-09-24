@@ -1,0 +1,21 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family specific variables for system_hardening
+
+# OpenSCAP profile for RedHat family
+openscap_profile: "anssi_bp28_high"
+
+# Services to harden on RedHat
+hardened_services:
+  - syslog-ng
+  - ovs-vswitchd
+  - ovsdb-server
+  - corosync
+  - pacemaker
+  - ceph-crash
+
+# RedHat-specific hardening options
+enable_selinux: true
+enable_firewalld: true

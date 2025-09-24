@@ -1,0 +1,48 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for system_hardening role
+# Consolidates variables from debian_hardening and debian_hardening_physical_machine
+
+# Hardening control
+revert: false  # Set to true to revert hardening changes
+
+# GRUB configuration
+grub_password: ""  # Optional: GRUB password for boot protection
+
+# Kernel parameters for hardening (Debian/Ubuntu)
+hardening_kernel_params:
+  - init_on_alloc=1
+  - init_on_free=1
+  - slab_nomerge
+  - pti=on
+  - slub_debug=ZF
+  - randomize_kstack_offset=on
+  - slab_common.usercopy_fallback=N
+  - iommu=pt
+  - security=yama
+  - mce=0
+  - rng_core.default_quality=500
+  - lsm=apparmor,lockdown,capability,landlock,yama,bpf,integrity
+
+# Systemd services to harden
+hardened_services:
+  - syslog-ng
+  - ovs-vswitchd
+  - ovsdb-server
+  - corosync
+  - pacemaker
+  - ceph-crash
+
+# OpenSCAP configuration for RedHat family
+openscap_profile: "anssi_bp28_high"  # OpenSCAP profile to use
+openscap_datastream: ""  # Optional: specific datastream path
+
+# Additional hardening options
+enable_selinux: true  # Enable SELinux hardening (RedHat only)
+enable_firewalld: true  # Enable firewalld configuration (RedHat only)
+enable_auditd: true  # Enable auditd configuration
+
+# Cockpit integration
+cockpit_installed: false  # Will be auto-detected

@@ -1,0 +1,116 @@
+#!/bin/bash
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+#
+# ANSSI BP-28 hardening script for RedHat family distributions
+# Based on OpenSCAP SCAP Security Guide profiles
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Check if OpenSCAP is available
+if ! command -v oscap &> /dev/null; then
+    log_error "OpenSCAP is not installed. Please install openscap-scanner package."
+    exit 1
+fi
+
+# Check if SCAP Security Guide is available
+if [ ! -d "/usr/share/xml/scap/ssg/content" ]; then
+    log_error "SCAP Security Guide is not installed. Please install scap-security-guide package."
+    exit 1
+fi
+
+log_info "Starting ANSSI BP-28 hardening for RedHat family..."
+
+# Determine the appropriate profile based on distribution
+{% if ansible_distribution == "CentOS" %}
+PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
+{% elif ansible_distribution == "OracleLinux" %}
+PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
+{% else %}
+PROFILE="xccdf_org.ssgproject.content_profile_anssi_bp28_high"
+{% endif %}
+
+# Find the appropriate datastream
+DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-{{ ansible_distribution | lower }}{{ ansible_distribution_major_version }}.xml"
+
+if [ ! -f "$DATASTREAM" ]; then
+    log_warn "Specific datastream not found, trying generic RHEL datastream..."
+    DATASTREAM="/usr/share/xml/scap/ssg/content/ssg-rhel{{ ansible_distribution_major_version }}.xml"
+fi
+
+if [ ! -f "$DATASTREAM" ]; then
+    log_error "No suitable SCAP datastream found for {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+    exit 1
+fi
+
+log_info "Using datastream: $DATASTREAM"
+log_info "Using profile: $PROFILE"
+
+# Create remediation script
+REMEDIATION_SCRIPT="/tmp/anssi_bp28_remediation.sh"
+
+log_info "Generating remediation script..."
+oscap xccdf generate fix \
+    --profile "$PROFILE" \
+    --output "$REMEDIATION_SCRIPT" \
+    "$DATASTREAM"
+
+if [ $? -ne 0 ]; then
+    log_error "Failed to generate remediation script"
+    exit 1
+fi
+
+# Make the script executable
+chmod +x "$REMEDIATION_SCRIPT"
+
+# Apply the remediation
+log_info "Applying ANSSI BP-28 hardening rules..."
+bash "$REMEDIATION_SCRIPT"
+
+if [ $? -eq 0 ]; then
+    log_info "ANSSI BP-28 hardening applied successfully"
+else
+    log_warn "Some hardening rules may have failed to apply"
+fi
+
+# Clean up
+rm -f "$REMEDIATION_SCRIPT"
+
+# Additional RedHat-specific hardening
+log_info "Applying additional RedHat-specific hardening..."
+
+# Configure SELinux if available
+if command -v setsebool &> /dev/null; then
+    log_info "Configuring SELinux settings..."
+    setsebool -P ssh_sysadm_login on || true
+    setsebool -P use_nfs_home_dirs on || true
+fi
+
+# Configure firewalld if available
+if command -v firewall-cmd &> /dev/null; then
+    log_info "Configuring firewall settings..."
+    systemctl enable firewalld || true
+    systemctl start firewalld || true
+    firewall-cmd --permanent --add-service=ssh || true
+    firewall-cmd --reload || true
+fi
+
+log_info "ANSSI BP-28 hardening completed for RedHat family"

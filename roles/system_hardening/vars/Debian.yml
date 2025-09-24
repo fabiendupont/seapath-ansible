@@ -1,0 +1,29 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Debian/Ubuntu specific variables for system_hardening
+
+# Kernel parameters specific to Debian
+hardening_kernel_params:
+  - init_on_alloc=1
+  - init_on_free=1
+  - slab_nomerge
+  - pti=on
+  - slub_debug=ZF
+  - randomize_kstack_offset=on
+  - slab_common.usercopy_fallback=N
+  - iommu=pt
+  - security=yama
+  - mce=0
+  - rng_core.default_quality=500
+  - lsm=apparmor,lockdown,capability,landlock,yama,bpf,integrity
+
+# Services to harden on Debian
+hardened_services:
+  - syslog-ng
+  - ovs-vswitchd
+  - ovsdb-server
+  - corosync
+  - pacemaker
+  - ceph-crash

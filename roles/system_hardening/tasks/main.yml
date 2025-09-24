@@ -1,0 +1,22 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# System hardening based on ANSSI BP-28 baseline
+
+# Include OS family-specific variables
+- include_vars: "{{ ansible_os_family }}.yml"
+
+# Debian/Ubuntu hardening (existing ANSSI BP-28 implementation)
+- name: Apply Debian hardening
+  include_tasks: debian_hardening.yml
+  when: ansible_os_family == "Debian"
+
+# RedHat/CentOS/OracleLinux hardening (OpenSCAP-based)
+- name: Apply RedHat hardening
+  include_tasks: redhat_hardening.yml
+  when: ansible_os_family == "RedHat"
+
+# Common hardening tasks (cross-platform)
+- name: Apply common hardening
+  include_tasks: common_hardening.yml

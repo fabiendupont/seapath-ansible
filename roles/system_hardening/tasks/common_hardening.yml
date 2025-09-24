@@ -1,0 +1,109 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Common hardening tasks applicable to all distributions
+
+- name: Configure password policies
+  ansible.builtin.lineinfile:
+    dest: /etc/login.defs
+    regexp: "^{{ item }}$"
+    line: "{{ item }}"
+    state: present
+  loop:
+    - PASS_MAX_DAYS 90
+  when: not revert
+
+- name: Remove password policies
+  ansible.builtin.lineinfile:
+    dest: /etc/login.defs
+    regexp: "^{{ item }}$"
+    state: absent
+  loop:
+    - PASS_MAX_DAYS 90
+  when: revert
+
+- name: Configure systemd service hardening
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d/"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  loop: "{{ hardened_services }}"
+
+- name: Apply systemd service hardening rules
+  ansible.builtin.copy:
+    src: "{{ item }}_hardening.conf"
+    dest: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
+  loop: "{{ hardened_services }}"
+  when: not revert
+
+- name: Remove systemd service hardening rules
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d/hardening.conf"
+    state: absent
+  loop: "{{ hardened_services }}"
+  when: revert
+
+- name: Configure random root password service
+  ansible.builtin.copy:
+    src: random-root-passwd.service
+    dest: /etc/systemd/system/random-root-passwd.service
+  when: not revert
+  register: random_root
+
+- name: Enable random root password service
+  ansible.builtin.systemd:
+    name: random-root-passwd.service
+    enabled: yes
+    state: started
+  when: not revert and random_root.changed
+
+- name: Disable random root password service
+  ansible.builtin.file:
+    path: /etc/systemd/system/sysinit.target.wants/random-root-passwd.service
+    state: absent
+  when: revert
+
+- name: Remove random root password service
+  ansible.builtin.file:
+    path: /etc/systemd/system/random-root-passwd.service
+    state: absent
+  when: revert
+
+- name: Configure private TMPDIR
+  ansible.builtin.copy:
+    src: mktmpdir.sh
+    dest: /etc/profile.d/mktmpdir.sh
+  when: not revert
+
+- name: Remove private TMPDIR
+  ansible.builtin.file:
+    path: /etc/profile.d/mktmpdir.sh
+    state: absent
+  when: revert
+
+- name: Configure terminal idle timeout
+  ansible.builtin.copy:
+    src: terminal_idle.sh
+    dest: /etc/profile.d/terminal_idle.sh
+  when: not revert
+
+- name: Remove terminal idle timeout
+  ansible.builtin.file:
+    path: /etc/profile.d/terminal_idle.sh
+    state: absent
+  when: revert
+
+- name: Configure Cockpit sudo rules
+  ansible.builtin.copy:
+    src: sudoers/cockpit
+    dest: /etc/sudoers.d/cockpit
+  when: not revert and cockpit_installed | default(false)
+
+- name: Remove Cockpit sudo rules
+  ansible.builtin.file:
+    path: /etc/sudoers.d/cockpit
+    state: absent
+  when: revert and cockpit_installed | default(false)

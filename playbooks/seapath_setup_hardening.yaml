@@ -1,19 +1,20 @@
-# Copyright (C) 2022, RTE (http://www.rte-france.com)
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 ---
+# Unified ANSSI BP-28 hardening playbook for all SEAPATH distributions
 
-- name: Revert ANSSI BP-28 hardening from SEAPATH machines
+- name: Apply ANSSI BP-28 hardening to SEAPATH machines
   become: true
   hosts:
     - cluster_machines
     - standalone_machine
     - VMs
   vars:
-    revert: true
+    revert: false
   roles:
     - system_hardening
 
-- name: Reboot to apply hardening revert
+- name: Reboot to apply hardening
   become: true
   hosts:
     - cluster_machines

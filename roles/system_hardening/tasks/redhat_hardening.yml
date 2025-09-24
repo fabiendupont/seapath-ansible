@@ -1,0 +1,72 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family hardening using OpenSCAP profiles for ANSSI BP-28 compliance
+
+- name: Install OpenSCAP packages
+  ansible.builtin.package:
+    name:
+      - openscap-scanner
+      - scap-security-guide
+      - python3-lxml
+    state: present
+
+- name: Generate ANSSI BP-28 hardening script
+  ansible.builtin.template:
+    src: anssi_bp28_hardening.sh.j2
+    dest: /tmp/anssi_bp28_hardening.sh
+    mode: '0755'
+
+- name: Apply ANSSI BP-28 hardening
+  ansible.builtin.shell: /tmp/anssi_bp28_hardening.sh
+  register: hardening_result
+  changed_when: hardening_result.rc == 0
+
+- name: Clean up hardening script
+  ansible.builtin.file:
+    path: /tmp/anssi_bp28_hardening.sh
+    state: absent
+
+- name: Configure sudo for privileged group
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    regexp: '^%privileged'
+    line: '%privileged ALL=(ALL) NOPASSWD: ALL'
+    state: present
+  when: not revert
+
+- name: Remove privileged group sudo access
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    regexp: '^%privileged'
+    state: absent
+  when: revert
+
+- name: Add users to privileged group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: privileged
+    append: yes
+  loop:
+    - "{{ admin_user }}"
+    - ansible
+  when: not revert
+
+- name: Configure GRUB password
+  ansible.builtin.template:
+    src: grub_password.j2
+    dest: /etc/grub.d/01_password
+    mode: '0755'
+  when: not revert and grub_password is defined
+
+- name: Remove GRUB password
+  ansible.builtin.file:
+    path: /etc/grub.d/01_password
+    state: absent
+  when: revert
+
+- name: Update GRUB configuration
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  changed_when: true
+  when: grub_password is defined

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 
-- name: Add hardened in SEAPATH Debian machines
+- name: Apply ANSSI BP-28 hardening to SEAPATH machines
   become: true
   hosts:
     - cluster_machines
@@ -11,16 +11,7 @@
   vars:
     revert: false
   roles:
-    - debian_hardening
-- name: Add hardened for SEAPATH physical machines
-  become: true
-  hosts:
-    - cluster_machines
-    - standalone_machine
-  vars:
-    revert: false
-  roles:
-    - debian_hardening_physical_machine
+    - system_hardening
 
 - name: Reboot to apply hardening
   become: true
