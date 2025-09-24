@@ -1,0 +1,13 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for virtualization_libvirt role
+
+# SR-IOV network pools
+sriov_network_pool_name: ""  # Name of the libvirt SR-IOV pool
+sriov_interface: ""  # Network interface to use for SR-IOV setup
+
+# Libvirt Ceph configuration
+libvirt_rbd_pool: "rbd"  # The Ceph RBD pool used by libvirt
+libvirt_pool_name: "ceph"  # The name of the libvirt storage pool to create

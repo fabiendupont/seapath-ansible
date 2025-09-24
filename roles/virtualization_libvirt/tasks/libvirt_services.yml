@@ -1,25 +1,26 @@
 # Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
-- name: Restart libvirtd
-  ansible.builtin.systemd:
-   name: libvirtd
-   state: restarted
+---
+# Libvirt services management
+
 - name: Enable and start virtsecretd.socket
   ansible.builtin.systemd:
     name: virtsecretd.socket
     state: started
     enabled: true
-  when: ansible_os_family == "RedHat"  
+  when: ansible_os_family == "RedHat"
+
 - name: Enable and start virtqemud.socket
   ansible.builtin.systemd:
     name: virtqemud.socket
     state: started
     enabled: true
-  when: ansible_os_family == "RedHat"  
+  when: ansible_os_family == "RedHat"
+
 - name: Enable and start virtstoraged.socket
   ansible.builtin.systemd:
     name: virtstoraged.socket
     state: started
     enabled: true
-  when: ansible_os_family == "RedHat"  
+  when: ansible_os_family == "RedHat"

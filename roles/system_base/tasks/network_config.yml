@@ -36,3 +36,20 @@
     state: present
   notify: Restart sshd
   when: ssh_disable_per_source_penalties | default(false)
+
+# SR-IOV network configuration
+- name: Add SR-IOV sysfs rules
+  template:
+    src: sriov.conf.j2
+    dest: /etc/tmpfiles.d/sriov.conf
+    mode: '0644'
+  with_items: "{{ sriov | dict2items }}"
+  when: sriov is defined
+  register: sriov_tmpfiles
+
+- name: Copy workqueue cpumask configuration
+  template:
+    src: tmpfiles-workqueue_cpumask.conf.j2
+    dest: /etc/tmpfiles.d/tmpfiles-workqueue_cpumask.conf
+    mode: '0644'
+  register: tmpfiles_cpumask

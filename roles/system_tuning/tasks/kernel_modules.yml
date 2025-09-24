@@ -47,3 +47,48 @@
     regexp: '^br_netfilter$'
     line: 'br_netfilter'
   when: ansible_os_family == "Debian"
+
+# Hypervisor-specific kernel modules
+- name: Add vhost_vsock to modules-load.d
+  ansible.builtin.copy:
+    src: modules/vhost_vsock.conf
+    dest: /etc/modules-load.d/vhost_vsock.conf
+    owner: root
+    group: root
+    mode: 0751
+  when: ansible_os_family == "RedHat"
+
+- name: Add vhost_vsock to /etc/modules
+  lineinfile:
+    dest: /etc/modules
+    state: present
+    regexp: '^vhost_vsock$'
+    line: 'vhost_vsock'
+  when: ansible_os_family == "Debian"
+
+- name: Add SR-IOV driver to modules-load.d
+  ansible.builtin.copy:
+    src: modules/sriov_driver.conf
+    dest: /etc/modules-load.d/sriov_driver.conf
+    owner: root
+    group: root
+    mode: 0751
+  when: 
+    - ansible_os_family == "RedHat"
+    - sriov_driver is defined
+
+- name: Add SR-IOV driver to /etc/modules
+  lineinfile:
+    dest: /etc/modules
+    state: present
+    regexp: "^{{ sriov_driver }}$"
+    line: "{{ sriov_driver }}"
+  when: 
+    - ansible_os_family == "Debian"
+    - sriov_driver is defined
+
+- name: Load SR-IOV module
+  community.general.modprobe:
+    name: "{{ sriov_driver }}"
+    state: present
+  when: sriov_driver is defined

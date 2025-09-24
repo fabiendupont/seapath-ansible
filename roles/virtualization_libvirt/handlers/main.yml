@@ -1,0 +1,10 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Handlers for virtualization_libvirt role
+
+- name: Restart libvirtd
+  ansible.builtin.systemd:
+    name: libvirtd
+    state: restarted

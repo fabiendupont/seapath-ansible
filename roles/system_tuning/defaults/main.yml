@@ -13,6 +13,7 @@ kernel_parameters_restart: false  # Whether to restart after kernel parameter up
 
 # Kernel modules
 extra_kernel_modules: []  # List of additional kernel modules to load
+sriov_driver: ""  # Name of the SR-IOV driver module (inherited from system_base)
 
 # Sysctl parameters
 extra_sysctl_physical_machines: ""  # Custom sysctl configuration

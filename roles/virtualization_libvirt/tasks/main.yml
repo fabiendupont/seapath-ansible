@@ -23,3 +23,15 @@
     path: "/usr/libexec/qemu-kvm"
     link: "/usr/bin/qemu-system-x86_64"
   when: ansible_os_family == "RedHat"
+
+# Libvirt configuration and Ceph integration
+- name: Configure libvirt
+  include_tasks: libvirt_config.yml
+
+# Libvirt services management
+- name: Manage libvirt services
+  include_tasks: libvirt_services.yml
+
+# SR-IOV network pools
+- name: Manage SR-IOV pools
+  include_tasks: sriov_pools.yml

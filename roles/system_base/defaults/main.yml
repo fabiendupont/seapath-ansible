@@ -21,3 +21,7 @@ syslog_tls_server_ca: ""   # Optional: Syslog TLS CA
 
 # Package management (Debian only)
 apt_repo: []         # Optional: List of apt repositories
+
+# SR-IOV configuration
+sriov_driver: ""  # Name of the SR-IOV driver module
+sriov: []  # List of network interfaces to configure for SR-IOV use

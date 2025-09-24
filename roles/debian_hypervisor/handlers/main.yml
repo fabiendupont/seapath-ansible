@@ -1,8 +1,0 @@
-# Copyright (C) 2024 RTE
-# SPDX-License-Identifier: Apache-2.0
-
----
-# Debian Hypervisor Role - Virtualization-specific handlers only
-# CPU isolation and real-time tuning handlers moved to system_tuning role
-
-# No handlers needed for current virtualization tasks

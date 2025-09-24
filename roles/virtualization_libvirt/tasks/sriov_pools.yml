@@ -1,0 +1,42 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# SR-IOV network pool management
+
+- name: Debug SR-IOV network pool name
+  debug:
+    msg: "the network pool name is {{ sriov_network_pool_name }}"
+  when: sriov_network_pool_name is defined
+
+- name: Check if SR-IOV network pool exists
+  shell:
+    cmd: set -o pipefail && virsh -q net-list --all | awk '{ print $1 }' | grep -q "{{ sriov_network_pool_name }}"
+    executable: /bin/bash
+  register: pool_defined
+  failed_when: pool_defined.rc > 1
+  changed_when: false
+  when: sriov_network_pool_name is defined
+
+- name: Create SR-IOV network pool
+  block:
+    - name: Copy libvirt xml SR-IOV network pool file
+      template:
+        src: sriov_network_pool.xml.j2
+        dest: /tmp/sriov_network_pool.xml
+    - name: Create libvirt SR-IOV network pool
+      command: "virsh net-define /tmp/sriov_network_pool.xml"
+      changed_when: true
+    - name: AutoStart libvirt SR-IOV network pool
+      command: "virsh net-autostart {{ sriov_network_pool_name }}"
+      changed_when: true
+    - name: Start libvirt SR-IOV network pool
+      command: "virsh net-start {{ sriov_network_pool_name }}"
+      changed_when: true
+    - name: Remove temporary file
+      file:
+        path: /tmp/sriov_network_pool.xml
+        state: absent
+  when: 
+    - sriov_network_pool_name is defined
+    - pool_defined.rc != 0
