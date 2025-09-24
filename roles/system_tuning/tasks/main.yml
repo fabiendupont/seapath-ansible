@@ -20,3 +20,19 @@
 # Hugepages configuration (performance tuning)
 - name: Configure hugepages
   include_tasks: hugepages_config.yml
+
+# CPU isolation and IRQ balancing
+- name: Configure CPU isolation
+  include_tasks: cpu_isolation.yml
+
+# Systemd slices for CPU allocation
+- name: Configure systemd slices
+  include_tasks: systemd_slices.yml
+
+# Real-time tuning
+- name: Configure real-time tuning
+  include_tasks: realtime_tuning.yml
+
+# Watchdog configuration
+- name: Configure watchdog
+  include_tasks: watchdog_config.yml

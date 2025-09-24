@@ -16,3 +16,12 @@ extra_kernel_modules: []  # List of additional kernel modules to load
 
 # Sysctl parameters
 extra_sysctl_physical_machines: ""  # Custom sysctl configuration
+
+# CPU isolation and real-time tuning
+isolcpus: ""  # CPU cores to isolate (comma separated, ranges with dash: e.g. 4,6-7,10)
+cpusystem: ""  # CPU cores reserved for system processes
+cpuuser: ""  # CPU cores reserved for user processes
+cpumachines: ""  # CPU cores reserved for VM processes
+cpumachinesrt: ""  # CPU cores reserved for real-time VM processes
+cpumachinesnort: ""  # CPU cores reserved for non-real-time VM processes
+cpuovs: ""  # CPU cores reserved for OVS processes

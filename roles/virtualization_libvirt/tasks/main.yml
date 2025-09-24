@@ -1,0 +1,25 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Libvirt service management and configuration
+
+- name: Enable libvirtd service
+  ansible.builtin.systemd:
+    name: libvirtd.service
+    enabled: yes
+    state: started
+
+- name: Configure libvirt-guests shutdown timeout for Debian
+  ansible.builtin.lineinfile:
+    path: /etc/default/libvirt-guests
+    regexp: '^#?SHUTDOWN_TIMEOUT=.*'
+    line: 'SHUTDOWN_TIMEOUT=20'
+  when: ansible_os_family == "Debian"
+
+- name: Create system alternative for QEMU KVM path
+  community.general.alternatives:
+    name: "debian kvm"
+    path: "/usr/libexec/qemu-kvm"
+    link: "/usr/bin/qemu-system-x86_64"
+  when: ansible_os_family == "RedHat"

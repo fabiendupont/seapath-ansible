@@ -39,23 +39,13 @@
   roles:
     - physical_machine
 
-- name: Hypervisor setup for CentOS
+- name: Virtualization setup for all distributions
   hosts:
     - hypervisors
     - standalone_machine
   become: true
   roles:
-    - role: centos_hypervisor
-      when: ansible_distribution == 'CentOS'
-
-- name: Hypervisor setup for Debian family
-  hosts:
-    - hypervisors
-    - standalone_machine
-  become: true
-  roles:
-    - role: debian_hypervisor
-      when: ansible_os_family == "Debian"
+    - virtualization_libvirt
 
 - name: Backup restore for Debian and OracleLinux
   hosts:

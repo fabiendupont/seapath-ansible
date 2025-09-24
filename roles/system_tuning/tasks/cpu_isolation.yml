@@ -1,0 +1,51 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# CPU isolation and IRQ balancing configuration
+
+- name: Setup IRQ balance configuration for RedHat
+  lineinfile:
+    path: /etc/sysconfig/irqbalance
+    regexp: '^#?IRQBALANCE_BANNED_CPULIST=".*"$'
+    line: 'IRQBALANCE_BANNED_CPULIST="{{ isolcpus }}"'
+    state: present
+  notify: Restart irqbalance
+  when: 
+    - ansible_os_family == "RedHat"
+    - isolcpus is defined
+
+- name: Setup IRQ balance configuration revert for RedHat
+  lineinfile:
+    path: /etc/sysconfig/irqbalance
+    regexp: '^#?IRQBALANCE_BANNED_CPULIST=(.*)$'
+    line: '#IRQBALANCE_BANNED_CPULIST=\1'
+    state: present
+    backrefs: yes
+  notify: Restart irqbalance
+  when: 
+    - ansible_os_family == "RedHat"
+    - isolcpus is not defined
+
+- name: Setup IRQ balance configuration for Debian
+  lineinfile:
+    path: /etc/default/irqbalance
+    regexp: '^#?IRQBALANCE_BANNED_CPUS=.*$'
+    line: 'IRQBALANCE_BANNED_CPUS="{{ isolcpus }}"'
+    state: present
+  notify: Restart irqbalance
+  when: 
+    - ansible_os_family == "Debian"
+    - isolcpus is defined
+
+- name: Setup IRQ balance configuration revert for Debian
+  lineinfile:
+    path: /etc/default/irqbalance
+    regexp: '^#?IRQBALANCE_BANNED_CPUS=(.*)$'
+    line: '#IRQBALANCE_BANNED_CPUS=\1'
+    state: present
+    backrefs: yes
+  notify: Restart irqbalance
+  when: 
+    - ansible_os_family == "Debian"
+    - isolcpus is not defined

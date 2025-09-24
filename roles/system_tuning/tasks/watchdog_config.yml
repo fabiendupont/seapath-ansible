@@ -1,0 +1,19 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Systemd watchdog configuration
+
+- name: Configure systemd RuntimeWatchdogSec
+  lineinfile:
+    path: /etc/systemd/system.conf
+    regexp: '^RuntimeWatchdogSec=.*$'
+    line: "RuntimeWatchdogSec=20"
+    state: present
+
+- name: Configure systemd RebootWatchdogSec
+  lineinfile:
+    path: /etc/systemd/system.conf
+    regexp: '^RebootWatchdogSec=.*$'
+    line: "RebootWatchdogSec=5min"
+    state: present
