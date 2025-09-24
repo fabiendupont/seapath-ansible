@@ -1,0 +1,38 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Hugepages configuration tasks for performance tuning
+
+# Yocto-specific hugepages configuration
+- name: Configure hugepages for Yocto
+  block:
+    - name: Setup hugepages number
+      copy:
+        content: "{{ hugepages_count | string }}"
+        dest: /etc/hugepages_nb.conf
+      notify:
+        - Restart hugepages service
+  when: 
+    - ansible_os_family == "Yocto"
+    - hugepages_count is defined
+    - hugepages_count > 0
+
+# GRUB-based hugepages configuration for Debian/RedHat
+- name: Configure hugepages for GRUB-based systems
+  block:
+    - name: Set hugepages kernel parameter
+      lineinfile:
+        path: /etc/default/grub
+        regexp: "^(GRUB_CMDLINE_LINUX=(?!.* hugepagesz=1G hugepages={{ hugepages_count }})\"[^\"]*)(\".*)"
+        line: '\1 hugepagesz=1G hugepages={{ hugepages_count }}\2'
+        state: present
+        backrefs: yes
+      notify: "{{ grub_update_handler }}"
+
+    - name: Update GRUB configuration
+      command: "{{ grub_update_command }}"
+  when: 
+    - ansible_os_family in ["Debian", "RedHat"]
+    - hugepages_count is defined
+    - hugepages_count > 0

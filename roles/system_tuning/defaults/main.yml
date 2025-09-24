@@ -1,0 +1,18 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for system_tuning role
+
+# Performance tuning
+hugepages_count: 0  # Number of 1GB hugepages to allocate (0 = disabled)
+
+# Kernel parameters (Yocto-specific)
+extra_kernel_parameters: ""  # Extra kernel parameters to add
+kernel_parameters_restart: false  # Whether to restart after kernel parameter update
+
+# Kernel modules
+extra_kernel_modules: []  # List of additional kernel modules to load
+
+# Sysctl parameters
+extra_sysctl_physical_machines: ""  # Custom sysctl configuration

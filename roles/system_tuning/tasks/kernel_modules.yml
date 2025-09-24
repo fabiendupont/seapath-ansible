@@ -1,0 +1,49 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Kernel modules configuration tasks
+
+- name: Add extra modules to the kernel
+  block:
+    - name: Create extra modules conf file
+      ansible.builtin.file:
+        path: /etc/modules-load.d/extra_modules.conf
+        owner: root
+        group: root
+        mode: 0751
+        state: touch
+    - name: Add extra modules to conf file
+      lineinfile:
+        dest: /etc/modules-load.d/extra_modules.conf
+        state: present
+        regexp: "^{{ item }}$"
+        line: "{{ item }}"
+      with_items: "{{ extra_kernel_modules | default([]) }}"
+  when: ansible_os_family == "RedHat"
+
+- name: Add extra modules to /etc/modules
+  lineinfile:
+    dest: /etc/modules
+    state: present
+    regexp: "^{{ item }}$"
+    line: "{{ item }}"
+  with_items: "{{ extra_kernel_modules | default([]) }}"
+  when: ansible_os_family == "Debian"
+
+- name: Add br_netfilter to /etc/modules-load.d
+  ansible.builtin.copy:
+    src: modules/netfilter.conf
+    dest: /etc/modules-load.d/netfilter.conf
+    owner: root
+    group: root
+    mode: 0751
+  when: ansible_os_family == "RedHat"
+
+- name: Add br_netfilter to /etc/modules
+  lineinfile:
+    dest: /etc/modules
+    state: present
+    regexp: '^br_netfilter$'
+    line: 'br_netfilter'
+  when: ansible_os_family == "Debian"

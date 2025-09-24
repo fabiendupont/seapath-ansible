@@ -1,0 +1,16 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# GRUB-based kernel parameter configuration for Debian/RedHat
+
+- name: Configure GRUB kernel parameters
+  lineinfile:
+    dest: /etc/default/grub
+    regexp: "^(GRUB_CMDLINE_LINUX=(?!.* {{ item }})\"[^\"]*)(\".*)"
+    line: '\1 {{ item }}\2'
+    state: present
+    backrefs: yes
+  notify: "{{ grub_update_handler }}"
+  with_items: "{{ grub_kernel_params }}"
+  when: grub_kernel_params is defined

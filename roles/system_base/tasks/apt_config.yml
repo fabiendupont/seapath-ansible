@@ -1,0 +1,23 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# APT repository configuration tasks (Debian only)
+
+- name: Remove all file in /etc/apt/sources.list.d
+  file:
+    path: /etc/apt/sources.list.d
+    state: absent
+
+- name: Configure apt repositories
+  template:
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
+
+- name: Remove /etc/default/grub.d/*.cfg (FAI)
+  file:
+    path: "/etc/default/grub.d/{{ item }}"
+    state: absent
+  with_items:
+    - 20_efi_ipv6.cfg
+    - 30_console.cfg

@@ -1,0 +1,15 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Kernel parameters configuration tasks
+
+# Yocto-specific kernel parameter handling
+- name: Configure kernel parameters for Yocto
+  include_tasks: yocto_kernel_params.yml
+  when: ansible_os_family == "Yocto"
+
+# GRUB-based kernel parameter handling for Debian/RedHat
+- name: Configure kernel parameters for GRUB-based systems
+  include_tasks: grub_kernel_params.yml
+  when: ansible_os_family in ["Debian", "RedHat"]

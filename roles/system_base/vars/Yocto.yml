@@ -1,0 +1,27 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Yocto family specific variables
+
+# Vim configuration paths (Yocto uses same as RedHat)
+vimrc_path: "/etc/vimrc"
+vimrc_local_path: "/etc/vimrc.local"
+
+# GRUB configuration (Yocto doesn't use GRUB, uses direct boot config)
+grub_remove_default: false
+grub_remove_quiet: false
+grub_ensure_linux_exists: false
+grub_update_handler: "Update Grub"
+grub_kernel_params: []
+
+# Network configuration (Yocto uses systemd-networkd by default)
+network_disable_nm: false
+network_enable_networkd: true
+ssh_disable_per_source_penalties: false
+
+# Package management (Yocto doesn't use APT)
+manage_apt_repos: false
+
+# Firewall management (Yocto doesn't use firewalld)
+disable_firewalld: false

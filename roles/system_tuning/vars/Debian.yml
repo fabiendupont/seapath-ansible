@@ -1,0 +1,9 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Debian family specific variables for system tuning
+
+# GRUB configuration
+grub_update_handler: "Update-grub"
+grub_update_command: "update-grub"

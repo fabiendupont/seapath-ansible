@@ -1,0 +1,29 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family specific variables (CentOS + OracleLinux)
+
+# Vim configuration paths
+vimrc_path: "/etc/vimrc"
+vimrc_local_path: "/etc/vimrc.local"
+
+# GRUB configuration
+grub_remove_default: true
+grub_remove_quiet: false
+grub_ensure_linux_exists: false
+grub_update_handler: "Update Grub"
+grub_kernel_params:
+  - ipv6.disable=1
+  - efi=runtime
+  - fsck.mode=force
+  - fsck.repair=yes
+  - "{{ grub_append | default([]) }}"
+
+# Network configuration
+network_disable_nm: true
+network_enable_networkd: true
+ssh_disable_per_source_penalties: false
+
+# OracleLinux specific
+disable_firewalld: "{{ ansible_distribution == 'OracleLinux' }}"

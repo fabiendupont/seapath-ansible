@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-# Consolidated prerequisites playbook for all distributions
+# Unified prerequisites playbook for all distributions (Debian, RedHat, Yocto)
 
 - name: Detect distribution
   hosts:
@@ -13,27 +13,23 @@
   roles:
     - detect_distribution
 
-- name: Prerequisites for RedHat family machines
+- name: Basic system setup for all distributions
   hosts:
     - cluster_machines
     - standalone_machine
     - VMs
   become: true
   roles:
-    - role: centos
-      when: ansible_distribution == 'CentOS'
-    - role: oraclelinux
-      when: ansible_distribution == 'OracleLinux'
+    - system_base
 
-- name: Prerequisites for Debian family machines
+- name: System performance tuning for all distributions
   hosts:
     - cluster_machines
     - standalone_machine
     - VMs
   become: true
   roles:
-    - role: debian
-      when: ansible_os_family == "Debian"
+    - system_tuning
 
 - name: Physical machine setup (all distributions)
   hosts:

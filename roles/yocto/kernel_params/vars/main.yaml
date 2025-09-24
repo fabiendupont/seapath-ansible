@@ -1,6 +1,0 @@
-# Copyright (C) 2020, RTE (http://www.rte-france.com)
-# Copyright (C) 2023 Savoir-faire Linux, Inc.
-# SPDX-License-Identifier: Apache-2.0
-
----
-yocto_config_file: "/boot/EFI/BOOT/grub.cfg"

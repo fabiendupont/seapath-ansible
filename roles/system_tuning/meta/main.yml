@@ -1,0 +1,23 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+galaxy_info:
+  author: "Seapath"
+  description: "System performance tuning and optimization (extracted from physical_machine and yocto)"
+  license: Apache-2.0
+  min_ansible_version: 2.9.10
+  platforms:
+    - name: EL
+      versions: [all]
+    - name: Debian
+      versions: [all]
+    - name: Yocto
+      versions: [all]
+  galaxy_tags:
+    - system
+    - tuning
+    - performance
+    - seapath
+dependencies:
+  - role: system_base

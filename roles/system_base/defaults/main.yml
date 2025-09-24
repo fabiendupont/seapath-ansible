@@ -1,0 +1,23 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for system_base role
+# Consolidates variables from centos, debian, and oraclelinux roles
+
+# User management
+admin_user: "admin"  # Required: User to use for administration
+admin_passwd: ""     # Optional: User password
+admin_ssh_keys: []   # Optional: List of SSH public keys
+
+# System configuration
+grub_append: []      # Optional: List of extra kernel parameters
+
+# Logging configuration
+syslog_server_ip: ""        # Optional: IP address of the Syslog server
+syslog_tls_ca: ""          # Optional: Syslog TLS public key
+syslog_tls_key: ""         # Optional: Syslog TLS private key
+syslog_tls_server_ca: ""   # Optional: Syslog TLS CA
+
+# Package management (Debian only)
+apt_repo: []         # Optional: List of apt repositories

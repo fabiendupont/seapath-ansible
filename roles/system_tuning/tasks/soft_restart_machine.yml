@@ -1,0 +1,9 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Soft restart machine tasks (from original Yocto role)
+
+- name: Soft restart machine
+  command: "{{ soft_restart_command }}"
+  when: soft_restart_command is defined

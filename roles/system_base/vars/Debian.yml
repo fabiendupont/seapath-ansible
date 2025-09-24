@@ -1,0 +1,29 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Debian family specific variables
+
+# Vim configuration paths
+vimrc_path: "/etc/vim/vimrc"
+vimrc_local_path: "/etc/vim/vimrc.local"
+
+# GRUB configuration
+grub_remove_default: false
+grub_remove_quiet: true
+grub_ensure_linux_exists: true
+grub_update_handler: "Update-grub"
+grub_kernel_params:
+  - ipv6.disable=1
+  - efi=runtime
+  - fsck.mode=force
+  - fsck.repair=yes
+  - "{{ grub_append | default([]) }}"
+
+# Network configuration
+network_disable_nm: false
+network_enable_networkd: false
+ssh_disable_per_source_penalties: "{{ ansible_distribution_release == 'trixie' }}"
+
+# APT configuration
+manage_apt_repos: "{{ apt_repo is defined }}"

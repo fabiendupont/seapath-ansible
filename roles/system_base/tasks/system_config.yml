@@ -1,0 +1,36 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# System configuration tasks
+
+- name: Copy sysctl rules
+  ansible.builtin.copy:
+    src: sysctl/{{ item }}
+    dest: /etc/sysctl.d/{{ item }}
+    mode: '0644'
+  with_items:
+    - 00-panicreboot.conf
+
+- name: Customize /etc/environment
+  ansible.builtin.lineinfile:
+    dest: "/etc/environment"
+    state: present
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  vars:
+    env_list:
+      HISTSIZE: 2000000
+      HISTFILESIZE: 2000000
+      LIBVIRT_DEFAULT_URI: "qemu:///system"
+      HISTTIMEFORMAT: '"%F %T "'
+      EDITOR: 'vim'
+      SYSTEMD_EDITOR: 'vim'
+  with_items: "{{ env_list | dict2items }}"
+
+- name: Stop and Disable firewalld
+  service:
+    name: firewalld
+    state: stopped
+    enabled: no
+  when: disable_firewalld | default(false)
