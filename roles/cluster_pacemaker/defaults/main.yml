@@ -1,0 +1,9 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for cluster_pacemaker
+
+# Pacemaker service configuration
+pacemaker_service_enabled: true
+pacemaker_service_state: "started"

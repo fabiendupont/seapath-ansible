@@ -1,0 +1,22 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Cluster initialization and configuration
+
+- name: Include OS family-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Wait for Pacemaker to be ready
+  ansible.builtin.command: "{{ cluster_crm_command_path }} status"
+  register: result
+  until: result.rc == 0
+  retries: 3
+  delay: 1
+  changed_when: false
+
+- name: Configure STONITH
+  include_tasks: stonith.yml
+
+- name: Run extra CRM configuration commands
+  include_tasks: cluster_config.yml

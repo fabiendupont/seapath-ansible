@@ -1,0 +1,8 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# RedHat family specific variables for cluster_conntrackd
+
+conntrackd_packages:
+  - conntrack-tools

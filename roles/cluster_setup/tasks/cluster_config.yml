@@ -1,0 +1,15 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Additional cluster configuration
+
+- name: Run extra CRM configuration commands
+  ansible.builtin.shell: "{{ cluster_crm_command_path }} configure {{ item }}"
+  loop: "{{ cluster_extra_crm_commands | default([]) }}"
+  when: cluster_extra_crm_commands is defined
+
+- name: Apply cluster resource configuration
+  ansible.builtin.shell: "{{ cluster_crm_command_path }} configure {{ item }}"
+  loop: "{{ cluster_resource_commands | default([]) }}"
+  when: cluster_resource_commands is defined

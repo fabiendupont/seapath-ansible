@@ -69,7 +69,7 @@
   hosts: cluster_machines
   become: true
   roles:
-    - role: conntrackd
+    - role: cluster_conntrackd
       when: conntrackd_ignore_ip_list is defined
 
 - name: Restart machine if needed

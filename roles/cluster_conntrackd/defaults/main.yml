@@ -1,0 +1,12 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for cluster_conntrackd
+
+# Conntrackd configuration
+conntrackd_interface: "{{ ansible_default_ipv4.interface }}"
+conntrackd_multicast_address: "225.0.0.50"
+conntrackd_multicast_group: 3780
+conntrackd_cluster_ip: "{{ cluster_ip_addr | default(ansible_default_ipv4.address) }}"
+conntrackd_ignore_ip_list: []

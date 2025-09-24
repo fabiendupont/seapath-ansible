@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: "Seapath"
+  description: "Corosync cluster communication setup"
+  license: Apache-2.0
+  min_ansible_version: 2.9.10
+  platforms:
+    - name: EL
+      versions: [all]
+    - name: Debian
+      versions: [all]
+    - name: Yocto
+      versions: [all]
+  galaxy_tags:
+    - cluster
+    - corosync
+    - high-availability
+    - seapath
+dependencies: []

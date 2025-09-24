@@ -1,0 +1,11 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for cluster_setup
+
+# Cluster configuration
+cluster_disable_stonith: true
+cluster_stonith_commands: []
+cluster_extra_crm_commands: []
+cluster_resource_commands: []

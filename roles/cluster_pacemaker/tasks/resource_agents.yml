@@ -1,0 +1,65 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Install and configure SEAPATH resource agents
+
+- name: Create SEAPATH resource agent directory
+  ansible.builtin.file:
+    path: /usr/lib/ocf/resource.d/seapath
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Copy SEAPATH resource agents
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /usr/lib/ocf/resource.d/seapath/{{ item }}
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - ntpstatus
+    - ptpstatus
+    - VirtualDomain
+
+- name: Copy VirtualDomain from heartbeat to seapath (Debian)
+  ansible.builtin.copy:
+    remote_src: yes
+    src: /usr/lib/ocf/resource.d/heartbeat/VirtualDomain
+    dest: /usr/lib/ocf/resource.d/seapath/VirtualDomain
+    owner: root
+    group: root
+    mode: '0755'
+    force: yes
+  when: ansible_os_family == "Debian"
+
+- name: Apply VirtualDomain patch
+  ansible.posix.patch:
+    src: VirtualDomain_patch
+    dest: /usr/lib/ocf/resource.d/seapath/VirtualDomain
+    strip: 0
+
+- name: Copy ethmonitor from heartbeat to seapath (Debian)
+  ansible.builtin.copy:
+    remote_src: yes
+    src: /usr/lib/ocf/resource.d/heartbeat/ethmonitor
+    dest: /usr/lib/ocf/resource.d/seapath/ethmonitor
+    owner: root
+    group: root
+    mode: '0755'
+    force: yes
+  when: ansible_os_family == "Debian"
+
+- name: Apply ethmonitor patch 1
+  ansible.posix.patch:
+    src: ethmonitor_patch1
+    dest: /usr/lib/ocf/resource.d/seapath/ethmonitor
+    strip: 0
+
+- name: Apply ethmonitor patch 2
+  ansible.posix.patch:
+    src: ethmonitor_patch2
+    dest: /usr/lib/ocf/resource.d/seapath/ethmonitor
+    strip: 0

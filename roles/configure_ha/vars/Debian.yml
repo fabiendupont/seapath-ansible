@@ -1,5 +1,0 @@
-# Copyright (C) 2024, Red Hat
-# SPDX-License-Identifier: Apache-2.0
-
----
-configure_ha_crm_command_path: "crm"

@@ -1,0 +1,25 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# STONITH configuration
+
+- name: Disable STONITH for unconfigured machines
+  ansible.builtin.shell: |
+    {{ cluster_crm_command_path }} configure property stonith-enabled=false;
+    sleep 1;
+    {{ cluster_crm_command_path }} configure show;
+  register: stonith_check
+  changed_when: true
+  when:
+    - groups['valid_machine'] is undefined
+    - cluster_disable_stonith | default(true)
+  until: "'stonith-enabled=false' in stonith_check.stdout"
+  retries: 5
+  delay: 1
+  run_once: true
+
+- name: Configure STONITH devices
+  ansible.builtin.shell: "{{ cluster_crm_command_path }} configure {{ item }}"
+  loop: "{{ cluster_stonith_commands | default([]) }}"
+  when: cluster_stonith_commands is defined

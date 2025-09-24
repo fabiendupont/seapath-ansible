@@ -9,8 +9,9 @@
   hosts: cluster_machines
   become: true
   vars:
-    tmpdir: "/tmp"
     corosync_node_list: "{{ groups['cluster_machines'] | list }}"
   roles:
     - detect_distribution
-    - configure_ha
+    - cluster_corosync
+    - cluster_pacemaker
+    - cluster_setup

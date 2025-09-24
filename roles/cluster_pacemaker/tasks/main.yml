@@ -1,0 +1,26 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Pacemaker resource manager and cluster management
+
+- name: Include OS family-specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Install Pacemaker packages
+  ansible.builtin.package:
+    name: "{{ pacemaker_packages }}"
+    state: present
+
+- name: Install SEAPATH resource agents
+  include_tasks: resource_agents.yml
+
+- name: Configure Pacemaker service
+  include_tasks: service_config.yml
+
+- name: Start and enable Pacemaker service
+  ansible.builtin.systemd:
+    name: pacemaker
+    state: started
+    enabled: yes
+    daemon_reload: yes

@@ -1,0 +1,16 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for cluster_corosync
+
+# Corosync cluster configuration
+corosync_cluster_name: "seapath"
+corosync_transport: "udpu"
+corosync_token: 1000
+corosync_netmtu: 1500
+corosync_vsftype: "ykb"
+corosync_ip_version: "ipv4"
+
+# Node list (should be provided by playbook)
+corosync_node_list: []
