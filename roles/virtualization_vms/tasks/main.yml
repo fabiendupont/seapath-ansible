@@ -1,0 +1,18 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Virtual machine deployment and management
+
+# VM networking (tap interfaces on br0)
+- name: Configure VM networking interfaces
+  include_tasks: vm_networking.yml
+
+# VM deployment (cluster vs standalone)
+- name: Deploy VMs in cluster environment
+  include_tasks: vm_deployment_cluster.yml
+  when: inventory_hostname in groups['cluster_machines'] | default([])
+
+- name: Deploy VMs in standalone environment
+  include_tasks: vm_deployment_standalone.yml
+  when: inventory_hostname in groups['standalone_machine'] | default([])

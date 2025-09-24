@@ -1,40 +1,43 @@
-# Copyright (C) 2024, RTE (http://www.rte-france.com)
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- name: Check presence of vm before copy
+# Cluster VM deployment (from deploy_vms_cluster role)
+
+- name: Check presence of VM before deployment
   cluster_vm:
     command: status
     name: "{{ item }}"
   register: presencevm
-- debug:
+  loop: "{{ groups['VMs'] | default([]) }}"
+
+- name: Debug VM presence status
+  debug:
     var: presencevm
     verbosity: 2
 
-- name: Check tmp folder permission
+- name: Check tmp folder permission for VM disk uploads
   file:
-    path: "{{ deploy_vms_cluster_qcow2tmpuploadfolder }}"
+    path: "{{ vm_disk_upload_folder }}"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: '0755'
   when:
-    - deploy_vms_cluster_qcow2tmpuploadfolder is defined
-    - deploy_vms_cluster_qcow2tmpuploadfolder != "/tmp"
+    - vm_disk_upload_folder is defined
+    - vm_disk_upload_folder != "/tmp"
 
-- when: presencevm.status == "Undefined" or (hostvars[item].force is defined and hostvars[item].force)
-  vars:
-    vm_file: "{{ hostvars[item].vm_disk | default( deploy_vms_cluster_vms_disks_directory ~ '/' ~ item ~ '.qcow2') }}"
-    vm_file_dest: "{{ deploy_vms_cluster_qcow2tmpuploadfolder + '/os.qcow2' }}"
+- name: Deploy VM in cluster
   block:
-    - name: "Copy system disk on target for {{ item }}"
+    - name: Copy system disk on target for {{ item }}
       copy:
         src: "{{ vm_file }}"
         dest: "{{ vm_file_dest }}"
       vars:
-        ansible_remote_tmp: "{{ deploy_vms_cluster_qcow2tmpuploadfolder | default(omit) }}"
-      when: deploy_vms_cluster_disk_copy | bool
-    - name: "Create {{ item }}"
+        ansible_remote_tmp: "{{ vm_disk_upload_folder | default(omit) }}"
+      when: vm_disk_copy | bool
+
+    - name: Create {{ item }} VM
       cluster_vm:
         name: "{{ item }}"
         command: create
@@ -55,12 +58,14 @@
                if hostvars[item].xml_path is defined
              else lookup('template',hostvars[item].vm_template,template_vars=dict(vm=hostvars[item]))
                if hostvars[item].vm_template is defined
-             else lookup('file',deploy_vms_cluster_vms_disks_directory + '/' + item + '.xml')
+             else lookup('file',vm_disks_directory + '/' + item + '.xml')
              | replace('\n', '') }}
-    - name: Remove temporary file
+
+    - name: Remove temporary VM disk file
       file:
         path: "{{ vm_file_dest }}"
         state: absent
+
     - name: Wait for VM connections
       wait_for_connection:
       delegate_to: "{{ item }}"
@@ -68,10 +73,19 @@
         - hostvars[item].wait_for_connection is defined
         - hostvars[item].wait_for_connection
 
-- name: "Define colocation constraints for {{ item }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
+  vars:
+    vm_file: "{{ hostvars[item].vm_disk | default( vm_disks_directory ~ '/' ~ item ~ '.qcow2') }}"
+    vm_file_dest: "{{ vm_disk_upload_folder + '/os.qcow2' }}"
+  when: 
+    - presencevm.results | selectattr('item', 'equalto', item) | map(attribute='status') | first == "Undefined"
+    - or (hostvars[item].force is defined and hostvars[item].force)
+
+- name: Define colocation constraints for VMs
   cluster_vm:
     name: "{{ item }}"
     command: define_colocation
     strong: "{{ hostvars[item].strong_colocation | default(false) }}"
     colocated_vms: "{{ hostvars[item].colocated_vms }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when: hostvars[item].colocated_vms is defined

@@ -1,0 +1,24 @@
+# Copyright (C) 2025 RTE
+# SPDX-License-Identifier: Apache-2.0
+
+---
+# Default variables for virtualization_vms role
+# Consolidates variables from deploy_vms_cluster, deploy_vms_standalone, and network_guestsinterfaces
+
+# VM Disk Management
+vm_disk_copy: true  # Whether to copy VM disk images
+vm_disk_upload_folder: "/tmp"  # Temporary folder for disk uploads
+vm_disks_directory: ""  # Directory containing VM disk images (cluster)
+vm_disk_pool: "/var/lib/libvirt/images"  # Libvirt disk pool (standalone)
+
+# VM Networking
+interfaces_on_br0: {}  # Tap interfaces to create on br0 bridge with VLANs
+# Example:
+# interfaces_on_br0:
+#   INTERFACE1: 159       # access port on vlan 159
+#   INTERFACE2: [159,160] # trunk port on vlan 159 and 160
+#   INTERFACE3: [1-4094]  # no filtering, excluding untagged traffic
+#   INTERFACE4: []        # no filtering, including untagged traffic
+
+# VM Configuration
+livemigration_user: ""  # User for live migration

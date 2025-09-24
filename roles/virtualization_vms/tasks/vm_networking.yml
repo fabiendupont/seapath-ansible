@@ -1,12 +1,16 @@
-# Copyright (C) 2024 RTE
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- debug:
+# VM networking configuration (from network_guestsinterfaces role)
+
+- name: Debug VM networking interfaces
+  debug:
     var: item.value
   with_items: "{{ interfaces_on_br0 | dict2items }}"
   when: interfaces_on_br0 is defined
-- name: Create 00-INTERFACEX.netdev
+
+- name: Create VM tap interface netdev configuration
   template:
     src: 00-INTERFACEX.netdev.j2
     dest: /etc/systemd/network/00-{{ item.key }}.netdev
@@ -16,7 +20,8 @@
   with_items: "{{ interfaces_on_br0 | dict2items }}"
   when: interfaces_on_br0 is defined
   notify: Reload systemd-networkd configuration
-- name: Create 00-INTERFACEX.network
+
+- name: Create VM tap interface network configuration
   template:
     src: 00-INTERFACEX.network.j2
     dest: /etc/systemd/network/00-{{ item.key }}.network

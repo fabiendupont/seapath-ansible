@@ -7,10 +7,10 @@
   gather_facts: false
   become: true
   vars:
-    disk_pool: "/var/lib/libvirt/images"
-    disk_copy: true
+    vm_disk_pool: "/var/lib/libvirt/images"
+    vm_disk_copy: true
   roles:
-    - deploy_vms_standalone
+    - virtualization_vms
 
 - name: Wait for VMs to be online
   hosts: VMs

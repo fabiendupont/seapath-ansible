@@ -57,13 +57,13 @@
   roles:
     - iptables
 
-- name: Configure guests br0 interfaces
+- name: Configure VM networking and deployment
   become: true
   hosts:
     - cluster_machines
     - standalone_machine
   roles:
-    - network_guestsinterfaces
+    - virtualization_vms
 
 - name: Conntrackd
   hosts: cluster_machines

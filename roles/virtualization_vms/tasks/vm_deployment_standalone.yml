@@ -1,99 +1,100 @@
-# Copyright (C) 2024 RTE
+# Copyright (C) 2025 RTE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- name: List all VMs
+# Standalone VM deployment (from deploy_vms_standalone role)
+
+- name: List all existing VMs
   community.libvirt.virt:
     command: list_vms
   register: all_vms
 
-- name: Stop VM
+- name: Stop VM if force is enabled
   community.libvirt.virt:
     state: destroyed
     name: "{{ item }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when:
     - item in all_vms.list_vms
     - hostvars[item].force is defined
     - hostvars[item].force
-  loop: "{{ groups['VMs'] }}"
 
-- name: Undefine VM
+- name: Undefine VM if force is enabled
   command: "virsh undefine --nvram {{ item }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when:
     - item in all_vms.list_vms
     - hostvars[item].force is defined
     - hostvars[item].force
-  loop: "{{ groups['VMs'] }}"
   changed_when: true
 
-- name: Print info
+- name: Debug VM hostvars
   debug:
     var: hostvars[item]
     verbosity: 2
-  loop: "{{ groups['VMs'] }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
 
-- name: Check tmp folder permission
+- name: Check tmp folder permission for VM disk uploads
   file:
-    path: "{{ deploy_vms_standalone_qcow2tmpuploadfolder }}"
+    path: "{{ vm_disk_upload_folder }}"
     state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: '0755'
   when:
-    - deploy_vms_standalone_qcow2tmpuploadfolder is defined
-    - deploy_vms_standalone_qcow2tmpuploadfolder != "/tmp"
+    - vm_disk_upload_folder is defined
+    - vm_disk_upload_folder != "/tmp"
 
-- name: Copy the disk on target
+- name: Copy VM disk on target (regular)
   copy:
     src: "{{ hostvars[item].vm_disk }}"
-    dest: "{{ deploy_vms_standalone_disk_pool }}/{{ hostvars[item].inventory_hostname }}.qcow2"
+    dest: "{{ vm_disk_pool }}/{{ hostvars[item].inventory_hostname }}.qcow2"
   vars:
-    ansible_remote_tmp: "{{ deploy_vms_standalone_qcow2tmpuploadfolder | default(omit) }}"
+    ansible_remote_tmp: "{{ vm_disk_upload_folder | default(omit) }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when:
-    - deploy_vms_standalone_disk_copy | bool
+    - vm_disk_copy | bool
     - hostvars[item].disk_extract is not defined or not hostvars[item].disk_extract | bool
     - item not in all_vms.list_vms or (item in all_vms.list_vms and hostvars[item].force is defined and hostvars[item].force)
-  loop: "{{ groups['VMs'] }}"
 
-- name: Copy the gzipped disk on target
+- name: Copy VM disk on target (gzipped)
   copy:
     src: "{{ hostvars[item].vm_disk }}"
-    dest: "{{ deploy_vms_standalone_disk_pool }}/{{ hostvars[item].inventory_hostname }}.img.gz"
+    dest: "{{ vm_disk_pool }}/{{ hostvars[item].inventory_hostname }}.img.gz"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when:
-    - deploy_vms_standalone_disk_copy | bool
+    - vm_disk_copy | bool
     - hostvars[item].disk_extract is defined
     - hostvars[item].disk_extract | bool
     - item not in all_vms.list_vms or (item in all_vms.list_vms and hostvars[item].force is defined and hostvars[item].force)
-  loop: "{{ groups['VMs'] }}"
 
-- name: Extract the gzipped disk on target
+- name: Extract gzipped VM disk
   command:
-    cmd: "gzip -d -f {{ deploy_vms_standalone_disk_pool }}/{{ hostvars[item].inventory_hostname }}.img.gz"
+    cmd: "gzip -d -f {{ vm_disk_pool }}/{{ hostvars[item].inventory_hostname }}.img.gz"
     creates: "{{ hostvars[item].inventory_hostname }}.img"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when:
-    - deploy_vms_standalone_disk_copy | bool
+    - vm_disk_copy | bool
     - hostvars[item].disk_extract is defined
     - hostvars[item].disk_extract | bool
     - item not in all_vms.list_vms or (item in all_vms.list_vms and hostvars[item].force is defined and hostvars[item].force)
-  loop: "{{ groups['VMs'] }}"
 
-- name: Add main disk to disk list
-  # This is only done in standalone because the disk is handled by vm-manager in the cluster
+- name: Add main disk to disk list for standalone VMs
   set_fact:
     standalone_main_disk: "{{ hostvars[item].inventory_hostname }}.qcow2"
   delegate_to: "{{ item }}"
   delegate_facts: true
-  loop: "{{ groups['VMs'] }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when: item not in all_vms.list_vms or (item in all_vms.list_vms and hostvars[item].force is defined and hostvars[item].force)
 
-- name: Export VM config for debug in /tmp
+- name: Export VM config for debug
   template:
     src: "{{ hostvars[item].vm_template }}"
     dest: "/tmp/{{ hostvars[item].inventory_hostname }}.xml"
   vars:
     vm: "{{ hostvars[item] }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when: ansible_verbosity >= 2
-  loop: "{{ groups['VMs'] }}"
 
 - name: Create VMs
   community.libvirt.virt:
@@ -102,12 +103,12 @@
       {{ lookup('template',
       hostvars[item].vm_template,
       template_vars=dict(vm=hostvars[item])) }}
-  loop: "{{ groups['VMs'] }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when: item not in all_vms.list_vms or (item in all_vms.list_vms and hostvars[item].force is defined and hostvars[item].force)
 
 - name: Start VMs
   community.libvirt.virt:
     name: "{{ item }}"
     state: running
-  loop: "{{ groups['VMs'] }}"
+  loop: "{{ groups['VMs'] | default([]) }}"
   when: hostvars[item].enable | default(true)
