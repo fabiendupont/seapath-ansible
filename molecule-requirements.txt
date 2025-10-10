@@ -1,0 +1,21 @@
+# Python requirements for Molecule testing with Ansible 2.10
+# Install with: pip install -r molecule-requirements.txt
+
+# Core Ansible and Molecule
+ansible==2.10.7
+ansible-lint==5.4.0
+molecule~=3.6.1
+molecule-vagrant~=1.0.0
+ansible-compat~=2.0.0
+
+# Dependencies
+jmespath
+packaging
+netaddr
+six
+yamllint
+Jinja2>=2.10
+
+# Optional but recommended for testing
+pytest
+pytest-testinfra

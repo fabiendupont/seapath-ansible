@@ -2,6 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+- name: Configure APT to not install weak deps
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20NoWeakDeps
+    content: |
+      APT::Install-Recommends "false";
+      APT::Install-Suggests "false";
+
+- when: apt_repo is defined
+  block:
+    - name: Remove all file in /etc/apt/sources.list.d
+      file:
+        path: /etc/apt/sources.list.d
+        state: absent
+    - name: Configure apt repositories
+      template:
+        src: sources.list.j2
+        dest: /etc/apt/sources.list
+
+- name: Update APT cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
 - name: Disable vim defaults
   lineinfile:
     dest: /etc/vim/vimrc
@@ -19,6 +42,10 @@
     path: /etc/vim/vimrc.local
     state: absent
 
+- name: Ensure syslog-ng package is present
+  ansible.builtin.package:
+    name: syslog-ng
+    state: present
 - name: Create /var/log/syslog-ng folder on hosts
   file:
     path: /var/log/syslog-ng
@@ -168,17 +195,6 @@
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
     mode: '0644'
-
-- when: apt_repo is defined
-  block:
-    - name: Remove all file in /etc/apt/sources.list.d
-      file:
-        path: /etc/apt/sources.list.d
-        state: absent
-    - name: Configure apt repositories
-      template:
-        src: sources.list.j2
-        dest: /etc/apt/sources.list
 
 - name: Remove /etc/default/grub.d/*.cfg (FAI)
   file:

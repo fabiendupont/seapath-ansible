@@ -1,0 +1,8 @@
+---
+# Converge playbook for debian role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: debian

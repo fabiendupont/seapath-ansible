@@ -300,7 +300,120 @@ For advanced SEAPATH scenarios and configuration, refer to :
 
 == Contributing to SEAPATH
 
-=== Continuous integration
+=== Testing
+
+SEAPATH Ansible uses a two-tier testing approach:
+
+==== Static Analysis (Fast)
+
+Run syntax, style, and security checks with ansible-lint:
+
+```
+$ cqfd -b ansible-lint
+```
+
+Or manually:
+
+```
+$ cqfd run ansible-lint -c ansible-lint.conf
+```
+
+This checks YAML syntax, Ansible best practices, security issues, and style consistency.
+
+==== Functional Testing with Molecule
+
+Test individual roles with Molecule using VMs:
+
+```
+$ molecule list                    # List all test scenarios
+$ molecule test                    # Run default integration test
+$ cd roles/debian && molecule test # Run debian role unit test
+```
+
+*Test Structure:*
+
+* `molecule/ceph-ansible-*` - Ceph deployment integration tests (validates ceph-ansible baseline)
+* `molecule/shared/` - Shared test components (converge, verify, fixtures)
+* `roles/*/molecule/default/` - Unit tests for individual roles
+
+*Prerequisites:*
+
+* Python 3.9-3.11 (Ansible 2.10 compatibility)
+* Vagrant >= 2.2.19 with libvirt provider
+* molecule-vagrant driver (included in molecule-requirements.txt)
+* System resources: 10-12 GB RAM, 6+ CPUs for integration tests
+
+To create a virtualenv, you can use the following commands:
+
+```
+$ python3.11 -m venv .venv
+$ source .venv/bin/activate
+$ pip install -r molecule-requirements.txt
+```
+
+There is currently an issue with SELinux on machines where Python 3.11 is not the default. A quick workaround consists in disabling SELinux check. Newer versions of Ansible will fix it.
+
+```
+$ sed -i '/def should_have_selinux():/a \ \ \ \ return False' .venv/lib64/python3.11/site-packages/selinux/__init__.py
+```
+
+*Development Workflow:*
+
+```
+# Quick iteration without full test cycle
+$ cd roles/debian
+$ molecule create           # Create VM
+$ molecule converge         # Apply role
+$ molecule verify           # Run verification
+$ molecule destroy          # Clean up
+```
+
+See `molecule-requirements.txt` for compatible versions.
+
+For detailed information on Ceph integration tests, see link:molecule/README.md[molecule/README.md].
+
+*Adding New Tests:*
+
+1. **Role Unit Tests** (test single role in isolation):
+   ```
+   $ mkdir -p roles/my_role/molecule/default
+   $ cp roles/debian/molecule/default/* roles/my_role/molecule/default/
+   # Edit converge.yml to use your role
+   # Edit verify.yml to test role-specific features
+   ```
+
+If your role supports multiple variations, use multiple scenarios, instead of the `default` scenario.
+
+2. **Integration Tests** (test multiple roles together):
+   ```
+   $ mkdir -p molecule/my_scenario/
+   # Create molecule.yml with multi-role setup or playbook import
+   # Create converge.yml testing role interactions
+   # Create verify.yml testing cross-role functionality
+   ```
+
+   Integration tests should verify:
+   - Multiple roles work together (e.g., debian + networking)
+   - Multi-node scenarios (clustering, HA)
+   - End-to-end playbook execution
+   - Cross-role dependencies and data flow
+
+   *Example: Ceph deployment integration tests*
+
+   These tests validate complete Ceph deployment workflows:
+   ```bash
+   # Test baseline ceph-ansible deployment
+   $ molecule test -s ceph-ansible-2h1o    # 2 hypervisors + 1 observer
+   $ molecule test -s ceph-ansible-3nodes  # 3 hypervisors
+   ```
+
+   The tests verify:
+   - Multi-node cluster setup
+   - Monitor quorum formation
+   - OSD deployment and activation
+   - Pool configuration and client authentication
+
+== Continuous integration
 
 A CI is actually running on the ansible repository. If you want to contribute to the project, this CI will launch your code to configure a cluster and run all non regression tests.
 

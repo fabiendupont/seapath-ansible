@@ -50,3 +50,6 @@ roles/deploy_cockpit_plugins/files/cockpit-cluster-vm-management.tar.gz
 # Tests results
 tests_results/*
 !tests_results/README
+
+# Python virtual env
+.venv

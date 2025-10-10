@@ -1,0 +1,88 @@
+---
+# Verify playbook for debian role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify admin user exists with correct UID
+      ansible.builtin.command: id -u {{ admin_user }}
+      register: user_uid
+      changed_when: false
+      failed_when: user_uid.stdout != "1000"
+
+    - name: Verify admin group exists with correct GID
+      ansible.builtin.command: getent group {{ admin_user }}
+      register: group_info
+      changed_when: false
+      failed_when: "'1000' not in group_info.stdout"
+
+    - name: Verify admin user has sudo access
+      ansible.builtin.stat:
+        path: "/etc/sudoers.d/{{ admin_user }}"
+      register: sudoers_file
+      failed_when: not sudoers_file.stat.exists or sudoers_file.stat.mode != '0440'
+
+    - name: Verify admin user bash profile exists
+      ansible.builtin.stat:
+        path: "/home/{{ admin_user }}/.bash_profile"
+      register: bash_profile
+      failed_when: not bash_profile.stat.exists
+
+    - name: Verify syslog-ng is installed and running
+      ansible.builtin.systemd:
+        name: syslog-ng
+        state: started
+      check_mode: true
+      register: syslog_check
+      failed_when: syslog_check is changed
+
+    - name: Verify syslog-ng configuration exists
+      ansible.builtin.stat:
+        path: /etc/syslog-ng/syslog-ng.conf
+      register: syslog_conf
+      failed_when: not syslog_conf.stat.exists
+
+    - name: Verify syslog-ng log directory exists
+      ansible.builtin.stat:
+        path: /var/log/syslog-ng
+      register: syslog_dir
+      failed_when: not syslog_dir.stat.exists or not syslog_dir.stat.isdir
+
+    - name: Verify journald configuration
+      ansible.builtin.stat:
+        path: /etc/systemd/journald.conf
+      register: journald_conf
+      failed_when: not journald_conf.stat.exists
+
+    - name: Verify sysctl panic reboot configuration
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/00-panicreboot.conf
+      register: sysctl_conf
+      failed_when: not sysctl_conf.stat.exists
+
+    - name: Verify GRUB configuration changes
+      ansible.builtin.command: grep -E 'ipv6.disable=1|efi=runtime|fsck.mode=force' /etc/default/grub
+      register: grub_check
+      changed_when: false
+      failed_when: grub_check.rc != 0
+
+    - name: Verify GRUB_DISABLE_OS_PROBER is set
+      ansible.builtin.command: grep '^GRUB_DISABLE_OS_PROBER=true' /etc/default/grub
+      register: grub_osprober
+      changed_when: false
+      failed_when: grub_osprober.rc != 0
+
+    - name: Verify environment variables are set
+      ansible.builtin.command: grep -E 'HISTSIZE=2000000|LIBVIRT_DEFAULT_URI=qemu:///system|EDITOR=vim' /etc/environment
+      register: env_check
+      changed_when: false
+      failed_when: env_check.rc != 0
+
+    - name: Verify vim configuration
+      ansible.builtin.command: grep -E 'let g:skip_defaults_vim = 1|syntax on' /etc/vim/vimrc
+      register: vim_check
+      changed_when: false
+      failed_when: vim_check.rc != 0
