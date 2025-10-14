@@ -6,6 +6,11 @@
   - dns_servers is defined
   - netplan_configurations is not defined
   block:
+  - name: Ensure systemd-resolved package is installed
+    ansible.builtin.package:
+      name:
+        - systemd-resolved
+      state: present
   - name: Configure LLMNR /etc/systemd/resolved.conf
     lineinfile:
       dest: /etc/systemd/resolved.conf

@@ -1,0 +1,28 @@
+---
+# Verify playbook for network_resolved role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify systemd-resolved package is installed
+      ansible.builtin.package:
+        name: systemd-resolved
+        state: present
+      check_mode: true
+      register: resolved_check
+      failed_when: resolved_check is changed
+
+    - name: Verify LLMNR is disabled in resolved.conf
+      ansible.builtin.command: grep '^LLMNR=no' /etc/systemd/resolved.conf
+      register: llmnr_check
+      changed_when: false
+      failed_when: llmnr_check.rc != 0
+
+    - name: Verify DNS servers are configured
+      ansible.builtin.command: grep '^DNS=' /etc/systemd/resolved.conf
+      register: dns_check
+      changed_when: false
+      failed_when: dns_check.rc != 0
