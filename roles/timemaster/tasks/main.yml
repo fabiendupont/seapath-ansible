@@ -4,6 +4,13 @@
 ---
 - include_vars: "{{ seapath_distro }}.yml"
 
+- name: Ensure the chrony and linuxptp packages are present
+  ansible.builtin.package:
+    name:
+      - chrony
+      - linuxptp
+    state: present
+
 - name: Populate service facts
   service_facts:
 - name: Stop and disable systemd-timesyncd if it exists

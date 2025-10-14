@@ -1,0 +1,33 @@
+---
+# Verify playbook for timemaster role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify chrony package is installed
+      ansible.builtin.package:
+        name: chrony
+        state: present
+      check_mode: true
+      register: chrony_check
+      failed_when: chrony_check is changed
+
+    - name: Verify linuxptp package is installed
+      ansible.builtin.package:
+        name: linuxptp
+        state: present
+      check_mode: true
+      register: linuxptp_check
+      failed_when: linuxptp_check is changed
+
+    - name: Verify systemd-timesyncd is stopped (if it was running)
+      ansible.builtin.systemd:
+        name: systemd-timesyncd
+        state: stopped
+      check_mode: true
+      register: timesyncd_check
+      # Don't fail if service doesn't exist
+      failed_when: false

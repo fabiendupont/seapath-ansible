@@ -1,0 +1,7 @@
+---
+# Shared requirements for Molecule scenarios
+# Compatible with Ansible 2.10
+
+collections: []
+
+roles: []
