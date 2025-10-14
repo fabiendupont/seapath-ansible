@@ -1,0 +1,50 @@
+---
+# deploy_vm_manager role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: shared/requirements.yml
+    force: false
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: vm-manager-test
+    box: generic/debian12
+    memory: 2048
+    cpus: 2
+    groups:
+      - test_nodes
+    networks:
+      - name: default
+        type: dhcp
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test-specific variables
+        ansible_python_interpreter: /usr/bin/python3
+        seapath_distro: debian
+
+verifier:
+  name: ansible

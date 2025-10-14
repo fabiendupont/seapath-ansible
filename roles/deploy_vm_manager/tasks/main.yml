@@ -4,12 +4,21 @@
 ---
 - include_vars: "{{ seapath_distro }}.yml"
 
+- name: Ensure required packages are installed
+  ansible.builtin.package:
+    name:
+      - libvirt-dev
+      - pkg-config
+      - python3-pip
+    state: present
+
 - name: Synchronization of src vm_manager on the control machine to dest on the remote hosts
   ansible.posix.synchronize:
     src: vm_manager
     dest: /tmp/src
     rsync_opts:
       - "--chown=root:root"
+    use_ssh_args: true
 - name: Install vm_manager
   command:
     cmd: "/usr/bin/pip install {{ deploy_vm_manager_pip_options }} /tmp/src/vm_manager"

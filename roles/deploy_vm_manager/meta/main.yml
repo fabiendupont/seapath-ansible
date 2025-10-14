@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  name: deploy_vm_manager
   author: "Seapath"
   description: deploys vm_manager
   license: Apache-2.0

@@ -1,0 +1,38 @@
+---
+# Verify playbook for deploy_vm_manager role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify libvirt-dev package is installed
+      ansible.builtin.package:
+        name: libvirt-dev
+        state: present
+      check_mode: true
+      register: libvirt_dev_check
+      failed_when: libvirt_dev_check is changed
+
+    - name: Verify pkg-config package is installed
+      ansible.builtin.package:
+        name: pkg-config
+        state: present
+      check_mode: true
+      register: pkg_config_check
+      failed_when: pkg_config_check is changed
+
+    - name: Verify python3-pip package is installed
+      ansible.builtin.package:
+        name: python3-pip
+        state: present
+      check_mode: true
+      register: pip_check
+      failed_when: pip_check is changed
+
+    - name: Verify vm-mgr symlink exists
+      ansible.builtin.stat:
+        path: /usr/bin/vm-mgr
+      register: vm_mgr_link
+      failed_when: not vm_mgr_link.stat.exists or not vm_mgr_link.stat.islnk
