@@ -4,12 +4,20 @@
 ---
 - include_vars: "{{ seapath_distro }}.yml"
 
+- name: Ensure required Python packages are present
+  ansible.builtin.package:
+    name:
+      - python3-pip
+      - python3-yaml
+    state: present
+
 - name: Synchronization of src python3-setup-ovs on the control machine to dest on the remote hosts
   ansible.posix.synchronize:
     src: python3-setup-ovs
     dest: /tmp/src
     rsync_opts:
       - "--chown=root:root"
+    use_ssh_args: true
 - name: Install python3-setup-ovs
   command:
     cmd: "/usr/bin/pip install {{ deploy_python3_setup_ovs_pip_options }} /tmp/src/python3-setup-ovs"

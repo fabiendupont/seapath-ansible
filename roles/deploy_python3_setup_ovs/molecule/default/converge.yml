@@ -1,0 +1,19 @@
+---
+# Converge playbook for deploy_python3_setup_ovs role testing
+
+- name: Pre-converge workarounds
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+    - name: Detect distribution
+      import_role:
+        name: detect_seapath_distro
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: deploy_python3_setup_ovs

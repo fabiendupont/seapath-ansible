@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: deploy_python3_setup_ovs
   author: "Seapath"
   description: deploys python3-setup-ovs (seapath-config_ovs)
   license: Apache-2.0

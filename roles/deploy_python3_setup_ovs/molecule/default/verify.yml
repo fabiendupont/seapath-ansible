@@ -1,0 +1,22 @@
+---
+# Verify playbook for deploy_python3_setup_ovs role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify python3-yaml package is installed
+      ansible.builtin.package:
+        name: python3-yaml
+        state: present
+      check_mode: true
+      register: yaml_check
+      failed_when: yaml_check is changed
+
+    - name: Verify seapath-config_ovs.service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/seapath-config_ovs.service
+      register: service_file
+      failed_when: not service_file.stat.exists
