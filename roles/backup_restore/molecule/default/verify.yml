@@ -1,0 +1,32 @@
+---
+# Verify playbook for backup_restore role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify backup-restore scripts are present
+      ansible.builtin.stat:
+        path: /usr/local/bin/backup-restore.sh
+      register: backup_script
+      failed_when: not backup_script.stat.exists
+
+    - name: Verify backup-restore configuration file exists
+      ansible.builtin.stat:
+        path: /etc/backup-restore.conf
+      register: backup_conf
+      failed_when: not backup_conf.stat.exists or backup_conf.stat.mode != '0644'
+
+    - name: Verify backup-restore.conf contains remote_shell configuration
+      ansible.builtin.command: grep '^remote_shell="ssh"' /etc/backup-restore.conf
+      register: remote_shell_check
+      changed_when: false
+      failed_when: remote_shell_check.rc != 0
+
+    - name: Verify scripts have correct permissions
+      ansible.builtin.stat:
+        path: /usr/local/bin/backup-restore.sh
+      register: script_perms
+      failed_when: script_perms.stat.mode != '0755'

@@ -9,6 +9,7 @@
     rsync_opts:
       - "--chown=root:root"
       - "--exclude=*.j2"
+    use_ssh_args: true
 - name: Copy backup-restore templates
   template:
     src: "{{ item }}"

@@ -1,0 +1,8 @@
+---
+# Converge playbook for backup_restore role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: backup_restore
