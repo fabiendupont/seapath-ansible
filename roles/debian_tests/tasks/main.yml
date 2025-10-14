@@ -10,6 +10,7 @@
     owner: false
     rsync_opts:
       - "--exclude=*.j2"
+    use_ssh_args: true
 - name: Copy Cukinia's tests templates
   template:
     src: cukinia-tests/cukinia/{{ item.src }}

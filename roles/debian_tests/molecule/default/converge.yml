@@ -1,0 +1,16 @@
+---
+# Converge playbook for debian_tests role testing
+
+- name: Pre-converge workarounds
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: debian_tests

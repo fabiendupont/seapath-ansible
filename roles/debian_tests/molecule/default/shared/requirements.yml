@@ -1,0 +1,9 @@
+---
+# Shared requirements for Molecule scenarios
+# Compatible with Ansible 2.10
+
+collections:
+  - name: ansible.posix
+    version: ">=1.0.0,<2.0.0"
+
+roles: []

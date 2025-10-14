@@ -1,0 +1,26 @@
+---
+# Verify playbook for debian_tests role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify Cukinia tests directory exists
+      ansible.builtin.stat:
+        path: /etc/cukinia
+      register: cukinia_dir
+      failed_when: not cukinia_dir.stat.exists or not cukinia_dir.stat.isdir
+
+    - name: Verify Cukinia common tests directory exists
+      ansible.builtin.stat:
+        path: /etc/cukinia/common_tests.d
+      register: common_tests_dir
+      failed_when: not common_tests_dir.stat.exists or not common_tests_dir.stat.isdir
+
+    - name: Verify Cukinia security tests directory exists
+      ansible.builtin.stat:
+        path: /etc/cukinia/common_security_tests.d
+      register: security_tests_dir
+      failed_when: not security_tests_dir.stat.exists or not security_tests_dir.stat.isdir
