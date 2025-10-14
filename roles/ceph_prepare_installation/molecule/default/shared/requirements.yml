@@ -1,0 +1,9 @@
+---
+# Shared requirements for Molecule scenarios
+# Compatible with Ansible 2.10
+
+collections:
+  - name: community.general
+    version: ">=3.0.0,<4.0.0"
+
+roles: []

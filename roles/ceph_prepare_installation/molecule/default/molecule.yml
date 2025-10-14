@@ -1,0 +1,54 @@
+---
+# ceph_prepare_installation role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: shared/requirements.yml
+    force: false
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: ceph-prep-test
+    box: generic/debian12
+    memory: 2048
+    cpus: 2
+    groups:
+      - test_nodes
+      - osds
+    networks:
+      - name: default
+        type: dhcp
+    provider_raw_config_args:
+      - "storage :file, :size => '10G', :device => 'vdb'"
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test-specific variables
+        ansible_python_interpreter: /usr/bin/python3
+        ceph_osd_disk: /dev/vdb
+        is_using_cephadm: false
+
+verifier:
+  name: ansible

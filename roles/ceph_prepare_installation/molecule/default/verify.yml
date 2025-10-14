@@ -1,0 +1,36 @@
+---
+# Verify playbook for ceph_prepare_installation role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify ceph-common package is installed
+      ansible.builtin.package:
+        name: ceph-common
+        state: present
+      check_mode: true
+      register: ceph_common_check
+      failed_when: ceph_common_check is changed
+
+    - name: Verify ceph-osd package is installed
+      ansible.builtin.package:
+        name: ceph-osd
+        state: present
+      check_mode: true
+      register: ceph_osd_check
+      failed_when: ceph_osd_check is changed
+
+    - name: Verify Ceph log directory exists with correct permissions
+      ansible.builtin.stat:
+        path: /var/log/ceph
+      register: ceph_log_dir
+      failed_when: not ceph_log_dir.stat.exists or not ceph_log_dir.stat.isdir or ceph_log_dir.stat.mode != '0770'
+
+    - name: Verify Ceph crash directory exists with correct permissions
+      ansible.builtin.stat:
+        path: /var/lib/ceph/crash/posted
+      register: ceph_crash_dir
+      failed_when: not ceph_crash_dir.stat.exists or not ceph_crash_dir.stat.isdir

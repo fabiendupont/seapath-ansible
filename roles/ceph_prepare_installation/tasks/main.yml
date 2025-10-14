@@ -2,6 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
+- name: Ensure Ceph packages present
+  ansible.builtin.package:
+    name:
+      - ceph-common
+      - ceph-osd
+    state: present
+
 - name: Check for existing installation (ceph-ansible only)
   when: not (is_using_cephadm | default(false))
   block:
