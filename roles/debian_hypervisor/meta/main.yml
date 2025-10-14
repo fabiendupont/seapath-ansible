@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: debian_hypervisor
   author: "Seapath"
   description: Add Livemigration user
   license: Apache-2.0

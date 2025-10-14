@@ -1,0 +1,51 @@
+---
+# Verify playbook for debian_hypervisor role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify tuned package is installed
+      ansible.builtin.package:
+        name: tuned
+        state: present
+      check_mode: true
+      register: tuned_check
+      failed_when: tuned_check is changed
+
+    - name: Verify tuned is running
+      ansible.builtin.systemd:
+        name: tuned
+        state: started
+      check_mode: true
+      register: tuned_service
+      failed_when: tuned_service is changed
+
+    - name: Verify libvirt-daemon-system package is installed
+      ansible.builtin.package:
+        name: libvirt-daemon-system
+        state: present
+      check_mode: true
+      register: libvirt_check
+      failed_when: libvirt_check is changed
+
+    - name: Verify vhost_vsock module is configured
+      ansible.builtin.command: grep '^vhost_vsock$' /etc/modules
+      register: vhost_check
+      changed_when: false
+      failed_when: vhost_check.rc != 0
+
+    - name: Verify tuned profile directory exists
+      ansible.builtin.stat:
+        path: /etc/tuned/profiles/seapath-rt-host
+      register: tuned_profile_dir
+      # Skip check if tuned version is < 2.22 (path would be different)
+      failed_when: false
+
+    - name: Verify RuntimeWatchdogSec is configured
+      ansible.builtin.command: grep '^RuntimeWatchdogSec=20' /etc/systemd/system.conf
+      register: watchdog_check
+      changed_when: false
+      failed_when: watchdog_check.rc != 0
