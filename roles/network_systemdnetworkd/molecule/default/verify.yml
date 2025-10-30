@@ -1,0 +1,58 @@
+---
+# Verify playbook for network_systemdnetworkd role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify systemd-networkd is enabled
+      ansible.builtin.systemd:
+        name: systemd-networkd
+      register: networkd_status
+      failed_when: networkd_status.status.UnitFileState != "enabled"
+
+    - name: Check if network configuration directory exists
+      ansible.builtin.stat:
+        path: /etc/systemd/network
+      register: network_dir
+      failed_when: not network_dir.stat.exists or not network_dir.stat.isdir
+
+    - name: List network configuration files
+      ansible.builtin.find:
+        paths: /etc/systemd/network
+        patterns: "*.network"
+      register: network_files
+
+    - name: Display network configuration files
+      ansible.builtin.debug:
+        msg: "Network files found: {{ network_files.files | map(attribute='path') | list }}"
+
+    - name: Verify at least some network configuration exists
+      ansible.builtin.assert:
+        that:
+          - network_files.matched > 0
+        fail_msg: "No network configuration files found"
+        success_msg: "Network configuration files present"
+
+    - name: Verify our custom network file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/network/50-test-dhcp.network
+      register: custom_network_file
+      failed_when: not custom_network_file.stat.exists
+
+    - name: Verify custom network file content
+      ansible.builtin.command: cat /etc/systemd/network/50-test-dhcp.network
+      register: custom_network_content
+      changed_when: false
+
+    - name: Verify custom network file has expected content
+      ansible.builtin.assert:
+        that:
+          - "'[Match]' in custom_network_content.stdout"
+          - "'Name=eth0' in custom_network_content.stdout"
+          - "'[Network]' in custom_network_content.stdout"
+          - "'DHCP=yes' in custom_network_content.stdout"
+        fail_msg: "Custom network file content is incorrect"
+        success_msg: "Custom network file has correct content"

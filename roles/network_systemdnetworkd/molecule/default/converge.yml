@@ -1,0 +1,22 @@
+---
+# Converge playbook for network_systemdnetworkd role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Ensure systemd-networkd is available
+      ansible.builtin.package:
+        name:
+          - systemd
+        state: present
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: network_systemdnetworkd

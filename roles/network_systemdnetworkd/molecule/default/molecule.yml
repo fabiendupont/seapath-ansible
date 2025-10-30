@@ -1,0 +1,50 @@
+---
+# network_systemdnetworkd role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: network-systemdnetworkd-test
+    box: generic/debian12
+    memory: 1024
+    cpus: 1
+    groups:
+      - test_nodes
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test with simple network (no administration network)
+        network_simple: true
+        network_systemdnetworkd_no_cluster_network: true
+        network_systemdnetworkd_apply_config: false
+        network_systemdnetworkd_enable_resolved: false
+        # Provide minimal custom network configuration for testing
+        custom_network:
+          50-test-dhcp:
+            - Match:
+                - Name: "eth0"
+            - Network:
+                - DHCP: "yes"
+
+verifier:
+  name: ansible
