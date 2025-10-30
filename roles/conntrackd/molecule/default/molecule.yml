@@ -1,0 +1,47 @@
+---
+# conntrackd role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: conntrackd-test
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+      - cluster_machines
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    host_vars:
+      conntrackd-test:
+        # Enable conntrackd with test configuration
+        # conntrackd_ignore_ip_list should be a multi-line string
+        conntrackd_ignore_ip_list: |
+          IPv4_address 192.168.1.1
+          IPv4_address 10.0.0.0/24
+        conntrackd_interface: eth0
+        cluster_ip_addr: 10.0.0.10
+        hostname: conntrackd-test
+
+verifier:
+  name: ansible

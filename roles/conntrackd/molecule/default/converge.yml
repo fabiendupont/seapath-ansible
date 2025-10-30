@@ -1,0 +1,34 @@
+---
+# Converge playbook for conntrackd role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Ensure conntrackd is installed
+      ansible.builtin.package:
+        name:
+          - conntrackd
+        state: present
+
+    - name: Ensure /etc/conntrackd directory exists
+      ansible.builtin.file:
+        path: /etc/conntrackd
+        state: directory
+        mode: '0755'
+
+    - name: Configure cluster IP address on eth0
+      ansible.builtin.command: ip addr add 10.0.0.10/24 dev eth0
+      register: ip_add_result
+      changed_when: ip_add_result.rc == 0
+      failed_when: false  # Ignore if already exists
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: conntrackd

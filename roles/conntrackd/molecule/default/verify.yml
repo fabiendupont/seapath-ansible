@@ -1,0 +1,68 @@
+---
+# Verify playbook for conntrackd role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify conntrackd.service.d directory exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/conntrackd.service.d
+      register: service_dir
+      failed_when: not service_dir.stat.exists or not service_dir.stat.isdir
+
+    - name: Verify override.conf exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/conntrackd.service.d/override.conf
+      register: override_file
+      failed_when: not override_file.stat.exists
+
+    - name: Verify override.conf has correct permissions
+      ansible.builtin.assert:
+        that:
+          - override_file.stat.mode == '0644'
+          - override_file.stat.pw_name == 'root'
+          - override_file.stat.gr_name == 'root'
+        fail_msg: "override.conf has incorrect permissions"
+        success_msg: "override.conf has correct permissions"
+
+    - name: Verify conntrackd.conf exists
+      ansible.builtin.stat:
+        path: /etc/conntrackd/conntrackd.conf
+      register: conntrackd_conf
+      failed_when: not conntrackd_conf.stat.exists
+
+    - name: Read conntrackd.conf content
+      ansible.builtin.command: cat /etc/conntrackd/conntrackd.conf
+      register: conf_content
+      changed_when: false
+
+    - name: Display conntrackd.conf content
+      ansible.builtin.debug:
+        msg: "{{ conf_content.stdout_lines }}"
+
+    - name: Verify conntrackd.conf contains interface configuration
+      ansible.builtin.assert:
+        that:
+          - "'eth0' in conf_content.stdout or 'Interface eth0' in conf_content.stdout"
+        fail_msg: "conntrackd.conf missing interface configuration"
+        success_msg: "conntrackd.conf has interface configuration"
+
+    - name: Verify conntrackd service is enabled
+      ansible.builtin.systemd:
+        name: conntrackd
+      register: service_status
+      failed_when: service_status.status.UnitFileState != "enabled"
+
+    - name: Verify conntrackd service is started
+      ansible.builtin.assert:
+        that:
+          - service_status.status.ActiveState in ['active', 'activating']
+        fail_msg: "conntrackd service is not running"
+        success_msg: "conntrackd service is running"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "conntrackd successfully configured and running"
