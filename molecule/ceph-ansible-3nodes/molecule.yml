@@ -1,0 +1,174 @@
+---
+# Copyright (C) 2025, RTE (http://www.rte-france.com)
+# SPDX-License-Identifier: Apache-2.0
+
+# Test scenario: ceph-ansible with 2 Hypervisors + 1 Observer topology
+
+scenario:
+  name: ceph-ansible-3nodes
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: ../shared/requirements.yml
+    force: false
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+# Platform definition shared across all 2H+1O scenarios
+platforms:
+  - name: hypervisor1
+    box: generic/debian12
+    memory: 8192
+    cpus: 4
+    groups:
+      - cluster_machines
+      - hypervisors
+      - mons
+      - osds
+      - clients
+    provider_options:
+      management_network_name: seapath-admin
+      management_network_address: "192.168.100.0/24"
+    provider_raw_config_args:
+      - "storage :file, :size => '40G', :device => 'vdb'"
+
+  - name: hypervisor2
+    box: generic/debian12
+    memory: 8192
+    cpus: 4
+    groups:
+      - cluster_machines
+      - hypervisors
+      - mons
+      - osds
+      - clients
+    provider_options:
+      management_network_name: seapath-admin
+      management_network_address: "192.168.100.0/24"
+    provider_raw_config_args:
+      - "storage :file, :size => '40G', :device => 'vdb'"
+
+  - name: hypervisor3
+    box: generic/debian12
+    memory: 8192
+    cpus: 4
+    groups:
+      - cluster_machines
+      - hypervisors
+      - mons
+      - osds
+      - clients
+    provider_options:
+      management_network_name: seapath-admin
+      management_network_address: "192.168.100.0/24"
+    provider_raw_config_args:
+      - "storage :file, :size => '40G', :device => 'vdb'"
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 60
+      stdout_callback: yaml
+  env:
+    ANSIBLE_COLLECTIONS_PATH: /home/fabiendupont/Code/github.com/seapath/ansible/collections
+    ANSIBLE_ROLES_PATH: ../../roles:../../ceph-ansible/roles
+    ANSIBLE_ACTION_PLUGINS: /home/fabiendupont/Code/github.com/seapath/ansible/ceph-ansible/plugins/actions
+    ANSIBLE_LIBRARY: ../../library:../../ceph-ansible/library
+  playbooks:
+    converge: ../shared/ceph/converge.yml
+    verify: ../shared/ceph/verify.yml
+  inventory:
+    group_vars:
+      all:
+        # Ansible vars
+        ansible_connection: ssh
+        ansible_python_interpreter: /usr/bin/python3
+        ansible_remote_tmp: /tmp/.ansible/tmp
+        ansible_ssh_common_args: "-o IdentitiesOnly=yes"
+
+        # Debian specific, remove if you use Yocto
+        admin_user: vagrant
+
+        # Main network configuration
+        network_interface: eth0
+        gateway_addr: "192.168.100.1"
+        dns_servers: "192.168.100.1"
+        hostname: "{{ inventory_hostname }}"
+        subnet: 24
+        apply_network_config: true
+
+        # NTP/PTP time synchronization
+        # For VMs: use ptp_kvm virtual PTP device
+        ntp_servers:
+          - "185.254.101.25" # public ntp server
+          - "51.145.123.29"  # public ntp server
+
+        # Hardening
+        grub_password: grub.pbkdf2.sha512.10000.666FF16D5587509B2B3340B2388CB798BEF9553A9666CECA6282E0D822C1529F94AF693CC6738C1F757B868D8090F24FD48D8F56486C70C545D559CB4BAAAA3E.9718E767036BDB71CC1B82BCFC906610F8772DD4757F6F075D82A23E70DA46FBED372A3E5143E5C2D40AA888C6B884E4AA437488D82008383C54ED79D68A42CF
+
+        # Ceph configuration
+        force_cephadm: false
+        ceph_origin: distro
+        ip_addr: "{{ ansible_host }}"
+        monitor_address: "{{ ip_addr }}"
+        no_cluster_network: yes
+        dashboard_enabled: false
+        ceph_conf_overrides:
+          global:
+            osd_pool_default_size: "{{ groups['hypervisors'] | length }}"
+            osd_pool_default_min_size: 1
+            osd_pool_default_pg_num: 128
+            osd_pool_default_pgp_num: 128
+            osd_crush_chooseleaf_type: 1
+            mon_osd_min_down_reporters: 1
+          mgr:
+            mgr_modules: "restful,status"
+          mon:
+            auth_allow_insecure_global_id_reclaim: false
+          osd:
+            osd memory target: 1073741824
+
+      hypervisors:
+        livemigration_user: livemigration
+        isolcpus: 4-N
+
+      osds:
+        ceph_osd_disk: /dev/vdb
+        devices: "{{ ceph_osd_disk }}"
+
+      clients:
+        user_config: true
+        rbd:
+          name: "rbd"
+          application: "rbd"
+          pg_autoscale_mode: on
+          target_size_ratio: 1
+        pools:
+          - "{{ rbd }}"
+        keys:
+          - name: client.libvirt
+            caps:
+              mon: 'profile rbd, allow command "osd blacklist"'
+              osd: "allow class-read object_prefix rbd_children, profile rbd pool=rbd"
+            mode: "{{ ceph_keyring_permissions }}"
+
+    groups:
+      grafana-server:
+      iscsigws:
+      iscsi-gws:
+      mdss:
+      mgrs:
+      nfss:
+      rbdmirrors:
+      rgwloadbalancers:
+      rgws:
+      standalone_machine:
+
+verifier:
+  name: ansible

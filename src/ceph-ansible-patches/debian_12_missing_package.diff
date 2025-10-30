@@ -1,0 +1,16 @@
+diff --git a/roles/ceph-mgr/tasks/pre_requisite.yml b/roles/ceph-mgr/tasks/pre_requisite.yml
+index 317a389aa..5f3e41e10 100644
+--- a/roles/ceph-mgr/tasks/pre_requisite.yml
++++ b/roles/ceph-mgr/tasks/pre_requisite.yml
+@@ -14,9 +14,8 @@
+ - name: set_fact ceph_mgr_packages for non el7 distribution
+   set_fact:
+     ceph_mgr_packages: "{{ ceph_mgr_packages | union(['ceph-mgr-diskprediction-local']) }}"
+-  when:
+-    - ansible_facts['os_family'] != 'RedHat'
+-    - ansible_facts['distribution_major_version'] | int != 7
++  when: (ansible_facts['os_family'] != 'RedHat' and ansible_facts['distribution_major_version'] | int != 7) and
++        (ansible_facts['os_family'] != 'Debian')
+ 
+ - name: install ceph-mgr packages on RedHat or SUSE
+   package:

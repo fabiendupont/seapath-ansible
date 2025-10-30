@@ -1,0 +1,178 @@
+---
+# Copyright (C) 2025, RTE (http://www.rte-france.com)
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared verification playbook for all Ceph test scenarios
+# Verifies cluster is healthy and properly configured
+
+- name: Verify Ceph cluster deployment
+  hosts: "{{ groups['mons'][0] }}"
+  become: true
+  tasks:
+    - name: Wait for cluster to be healthy
+      command: ceph status --format=json
+      register: ceph_status
+      retries: 60
+      delay: 10
+      until:
+        - ceph_status.rc == 0
+        - (ceph_status.stdout | from_json).health.status == "HEALTH_OK"
+      changed_when: false
+
+    - name: Get cluster info
+      set_fact:
+        ceph_health: "{{ (ceph_status.stdout | from_json).health.status }}"
+
+    - name: Verify monitor count
+      command: ceph mon dump --format=json
+      register: mon_dump
+      changed_when: false
+
+    - name: Check monitor count matches topology
+      assert:
+        that:
+          - (mon_dump.stdout | from_json).mons | length == groups['mons'] | length
+        fail_msg: "Monitor count mismatch: expected {{ groups['mons'] | length }}, got {{ (mon_dump.stdout | from_json).mons | length }}"
+
+    - name: Verify OSD count
+      command: ceph osd stat --format=json
+      register: osd_stat
+      changed_when: false
+
+    - name: Check OSD count matches topology
+      assert:
+        that:
+          - (osd_stat.stdout | from_json).num_osds == groups['osds'] | length
+        fail_msg: "OSD count mismatch: expected {{ groups['osds'] | length }}, got {{ (osd_stat.stdout | from_json).num_osds }}"
+
+    - name: Verify all OSDs are up
+      assert:
+        that:
+          - (osd_stat.stdout | from_json).num_up_osds == groups['osds'] | length
+        fail_msg: "Not all OSDs are up"
+
+    - name: Verify RBD pool exists
+      shell: |
+        set -o pipefail
+        ceph osd lspools --format=json | jq -r '.[].poolname'
+      args:
+        executable: /bin/bash
+      register: pools
+      changed_when: false
+      failed_when: "'rbd' not in pools.stdout_lines"
+
+    - name: Verify client.libvirt auth exists
+      command: ceph auth get client.libvirt
+      register: libvirt_auth
+      changed_when: false
+
+    - name: Verify client.libvirt has correct capabilities
+      assert:
+        that:
+          - "'profile rbd' in libvirt_auth.stdout"
+          - "'osd blacklist' in libvirt_auth.stdout"
+        fail_msg: "client.libvirt capabilities are incorrect"
+
+    - name: Verify RBD features configured
+      command: ceph config get client.admin rbd_default_features
+      register: rbd_features
+      changed_when: false
+      failed_when: false  # Don't fail if not set, just check
+
+    - name: Check RBD default features
+      debug:
+        msg: "RBD default features: {{ rbd_features.stdout if rbd_features.rc == 0 else 'not configured (using defaults)' }}"
+
+    - name: Verify RBD lock features are configured globally
+      command: rbd config global get global rbd_default_features
+      register: rbd_global_features
+      changed_when: false
+
+    - name: Check RBD features match SEAPATH requirements (bitmask)
+      assert:
+        that:
+          - rbd_global_features.stdout == '33'
+        fail_msg: "RBD features incorrect: {{ rbd_global_features.stdout }} (expected 33 = layering + deep-flatten)"
+        success_msg: "RBD features correctly configured: {{ rbd_global_features.stdout }} (layering + deep-flatten)"
+
+    - name: Verify restful mgr module is disabled
+      command: ceph mgr module ls --format=json
+      register: mgr_modules
+      changed_when: false
+      failed_when: "'restful' in (mgr_modules.stdout | from_json).enabled_modules"
+
+    - name: Verify all monitors are in quorum
+      command: ceph quorum_status --format=json
+      register: quorum_status
+      changed_when: false
+      failed_when: (quorum_status.stdout | from_json).quorum | length != groups['mons'] | length
+
+    - name: Verify placement groups are healthy
+      command: ceph health --format=json
+      register: pg_health
+      changed_when: false
+      retries: 30
+      delay: 10
+      until:
+        - pg_health.rc == 0
+        - (pg_health.stdout | from_json).status in ['HEALTH_OK', 'HEALTH_WARN']
+
+    - name: Verify ceph.conf contains expected settings
+      shell: grep -E "osd_pool_default_size|osd_pool_default_min_size" /etc/ceph/ceph.conf
+      register: ceph_conf_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display ceph.conf settings
+      debug:
+        msg: "Ceph.conf settings: {{ ceph_conf_check.stdout_lines }}"
+
+    - name: Display deployment success
+      debug:
+        msg: |
+          ✅ Ceph deployment verification PASSED
+          Method: {{ 'cephadm' if (is_using_cephadm | default(false)) else 'ceph-ansible' }}
+          Topology: {{ groups['mons'] | length }} monitors, {{ groups['osds'] | length }} OSDs
+          Health: {{ ceph_health }}
+
+- name: Verify Ceph directories and permissions
+  hosts: cluster_machines
+  become: true
+  tasks:
+    - name: Check Ceph directories exist with correct ownership
+      stat:
+        path: "{{ item }}"
+      register: ceph_dir_stat
+      failed_when:
+        - not ceph_dir_stat.stat.exists
+      loop:
+        - /etc/ceph
+        - /var/lib/ceph
+        - /var/lib/ceph/mon
+        - /var/lib/ceph/osd
+        - /var/lib/ceph/crash/posted
+        - /var/log/ceph
+
+    - name: Verify Ceph directory ownership and permissions
+      assert:
+        that:
+          - item.stat.exists
+          - item.stat.pw_name == 'ceph'
+          - item.stat.gr_name == 'ceph'
+        fail_msg: "Directory {{ item.item }} has incorrect ownership: {{ item.stat.pw_name }}:{{ item.stat.gr_name }}"
+        success_msg: "Directory {{ item.item }} has correct ownership: ceph:ceph"
+      loop: "{{ ceph_dir_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Verify log directory has correct permissions (0770)
+      stat:
+        path: /var/log/ceph
+      register: log_dir_stat
+
+    - name: Check log directory is writable by ceph group
+      assert:
+        that:
+          - log_dir_stat.stat.mode == '0770'
+        fail_msg: "Log directory /var/log/ceph has incorrect permissions: {{ log_dir_stat.stat.mode }}"
+        success_msg: "Log directory /var/log/ceph has correct permissions: 0770"

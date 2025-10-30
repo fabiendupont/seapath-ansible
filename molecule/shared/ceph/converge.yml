@@ -1,0 +1,38 @@
+---
+# Copyright (C) 2025, RTE (http://www.rte-france.com)
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared converge playbook for Ceph-only testing
+# Uses ceph_deployment_method variable set in molecule.yml
+# Minimal setup: just distro detection, Debian prereqs, and Ceph deployment
+
+# Step 1: Detect SEAPATH distribution
+- name: Detect Seapath distribution
+  hosts: cluster_machines
+  roles:
+    - detect_seapath_distro
+
+# Step 2: Run Debian prerequisites (creates ceph user, installs packages, etc.)
+- name: Import seapath_setup_prerequisdebian playbook
+  import_playbook: ../../../playbooks/seapath_setup_prerequisdebian.yaml
+
+- name: Import seapath_setup_network playbook
+  import_playbook: ../../../playbooks/seapath_setup_network.yaml
+
+- name: Import seapath_setup_timemaster playbook
+  import_playbook: ../../../playbooks/seapath_setup_timemaster.yaml
+
+# Step 3: Deploy Ceph
+- name: Deploy Ceph with ceph-ansible
+  import_playbook: ../../../playbooks/cluster_setup_ceph.yaml
+
+# Step 4: Prepare for verification
+- name: Ensure verify.yml dependencies are present
+  hosts: cluster_machines
+  become: true
+  tasks:
+    - name: Ensure packages are present
+      ansible.builtin.package:
+        name:
+          - jq
+        state: present
