@@ -1,0 +1,57 @@
+---
+# Verify playbook for network_configovs role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify OVS configuration file exists
+      ansible.builtin.stat:
+        path: /etc/ovs_configuration.json
+      register: ovs_config_file
+      failed_when: not ovs_config_file.stat.exists
+
+    - name: Read OVS configuration file
+      ansible.builtin.slurp:
+        path: /etc/ovs_configuration.json
+      register: ovs_config_content
+
+    - name: Parse OVS configuration JSON
+      ansible.builtin.set_fact:
+        ovs_config: "{{ ovs_config_content.content | b64decode | from_json }}"
+
+    - name: Display OVS configuration
+      ansible.builtin.debug:
+        var: ovs_config
+
+    - name: Verify test-br0 bridge is in configuration
+      ansible.builtin.assert:
+        that:
+          - ovs_config.bridges | selectattr('name', 'equalto', 'test-br0') | list | length == 1
+        fail_msg: "test-br0 bridge not found in OVS configuration"
+        success_msg: "test-br0 bridge found in configuration"
+
+    - name: Get test-br0 bridge config
+      ansible.builtin.set_fact:
+        test_br0: "{{ ovs_config.bridges | selectattr('name', 'equalto', 'test-br0') | first }}"
+
+    - name: Verify test-br0 has correct settings
+      ansible.builtin.assert:
+        that:
+          - test_br0.rstp_enable == false
+          - test_br0.enable_ipv6 == false
+        fail_msg: "test-br0 bridge settings incorrect"
+        success_msg: "test-br0 bridge settings correct"
+
+    - name: Verify test-port0 is in bridge
+      ansible.builtin.assert:
+        that:
+          - test_br0.ports | selectattr('name', 'equalto', 'test-port0') | list | length == 1
+        fail_msg: "test-port0 not found in test-br0"
+        success_msg: "test-port0 found in test-br0"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "OVS configuration successfully created and verified"

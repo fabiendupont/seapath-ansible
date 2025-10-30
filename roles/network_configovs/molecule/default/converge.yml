@@ -1,0 +1,17 @@
+---
+# Converge playbook for network_configovs role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    # Detect distribution (required by network_configovs)
+    - role: detect_seapath_distro
+    # debian_physical_machine installs openvswitch and setup_ovs tool
+    - role: debian
+      vars:
+        admin_user: vagrant
+        admin_ssh_keys: []
+    - role: debian_hypervisor
+    - role: debian_physical_machine
+    - role: network_configovs

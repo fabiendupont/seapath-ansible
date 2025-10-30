@@ -1,0 +1,62 @@
+---
+# network_configovs role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+  # TODO: Fix idempotence issues before enabling idempotence test
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: network-configovs-test
+    box: generic/debian12
+    memory: 1024
+    cpus: 2
+    groups:
+      - test_nodes
+      - cluster_machines
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Simple test OVS bridge configuration
+        network_configovs_apply_config: false
+        ovs_bridges:
+          - name: test-br0
+            rstp_enable: false
+            enable_ipv6: false
+            ports:
+              - name: test-port0
+                type: internal
+                tag: 100
+                vlan_mode: access
+
+verifier:
+  name: ansible
