@@ -51,8 +51,9 @@
     src: pacemaker_ra/
     dest: /usr/lib/ocf/resource.d/seapath/
     rsync_opts:
-    - "--chmod=F755"
-    - "--chown=root:root"
+      - "--chmod=F755"
+      - "--chown=root:root"
+    use_ssh_args: true
   when:
     - "'cluster_machines' in group_names"
 
