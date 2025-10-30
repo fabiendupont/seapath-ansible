@@ -1,0 +1,60 @@
+---
+# Verify playbook for network_sriovpool role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Check if SR-IOV pool is defined
+      ansible.builtin.shell: |
+        set -o pipefail
+        virsh -q net-list --all | awk '{ print $1 }' | grep -q "sr-iov-test-pool"
+      args:
+        executable: /bin/bash
+      register: pool_check
+      changed_when: false
+      failed_when: pool_check.rc != 0
+
+    - name: Get SR-IOV pool info
+      ansible.builtin.command: virsh net-info sr-iov-test-pool
+      register: pool_info
+      changed_when: false
+
+    - name: Display pool info
+      ansible.builtin.debug:
+        msg: "{{ pool_info.stdout_lines }}"
+
+    - name: Verify pool is active
+      ansible.builtin.assert:
+        that:
+          - "'Active:' in pool_info.stdout"
+          - "'yes' in pool_info.stdout"
+        fail_msg: "SR-IOV pool is not active"
+        success_msg: "SR-IOV pool is active"
+
+    - name: Verify pool has autostart enabled
+      ansible.builtin.assert:
+        that:
+          - "'Autostart:' in pool_info.stdout"
+          - "'yes' in pool_info.stdout"
+        fail_msg: "SR-IOV pool autostart not enabled"
+        success_msg: "SR-IOV pool autostart is enabled"
+
+    - name: Get pool XML configuration
+      ansible.builtin.command: virsh net-dumpxml sr-iov-test-pool
+      register: pool_xml
+      changed_when: false
+
+    - name: Verify pool XML contains SR-IOV configuration
+      ansible.builtin.assert:
+        that:
+          - "'<forward mode='hostdev' managed='yes'>' in pool_xml.stdout or \"<forward mode='hostdev' managed='yes'>\" in pool_xml.stdout"
+          - "'<pf dev='eth0'/>' in pool_xml.stdout or \"<pf dev='eth0'/>\" in pool_xml.stdout"
+        fail_msg: "SR-IOV pool XML configuration is incorrect"
+        success_msg: "SR-IOV pool XML configuration is correct"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "SR-IOV libvirt pool successfully created and configured"

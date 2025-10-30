@@ -1,0 +1,42 @@
+---
+# network_sriovpool role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: sriovpool-test
+    box: generic/debian12
+    memory: 1024
+    cpus: 2
+    groups:
+      - test_nodes
+      - hypervisors
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # SR-IOV pool configuration
+        network_sriovpool_sriov_network_pool_name: sr-iov-test-pool
+        network_sriovpool_interface: eth0
+
+verifier:
+  name: ansible

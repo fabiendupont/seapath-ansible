@@ -1,0 +1,29 @@
+---
+# Converge playbook for network_sriovpool role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Ensure libvirt is installed
+      ansible.builtin.package:
+        name:
+          - libvirt-daemon-system
+          - libvirt-clients
+        state: present
+
+    - name: Ensure libvirtd is running
+      ansible.builtin.systemd:
+        name: libvirtd
+        state: started
+        enabled: true
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: network_sriovpool
