@@ -1,0 +1,54 @@
+---
+# Verify playbook for ptp_status_vsock role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify /var/lib/ptp directory exists
+      ansible.builtin.stat:
+        path: /var/lib/ptp
+      register: ptp_dir
+      failed_when: not ptp_dir.stat.exists or not ptp_dir.stat.isdir
+
+    - name: Verify ptpstatus.sh exists and is executable
+      ansible.builtin.stat:
+        path: /var/lib/ptp/ptpstatus.sh
+      register: ptpstatus_sh
+      failed_when: not ptpstatus_sh.stat.exists or not ptpstatus_sh.stat.executable
+
+    - name: Verify ptp_vsock.py exists and is executable
+      ansible.builtin.stat:
+        path: /var/lib/ptp/ptp_vsock.py
+      register: ptp_vsock_py
+      failed_when: not ptp_vsock_py.stat.exists or not ptp_vsock_py.stat.executable
+
+    - name: Verify ptpstatus.service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/ptpstatus.service
+      register: ptpstatus_service
+      failed_when: not ptpstatus_service.stat.exists
+
+    - name: Verify ptp_vsock.service file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/ptp_vsock.service
+      register: ptp_vsock_service
+      failed_when: not ptp_vsock_service.stat.exists
+
+    - name: Verify ptpstatus.service is enabled
+      ansible.builtin.systemd:
+        name: ptpstatus.service
+      register: ptpstatus_status
+      failed_when: ptpstatus_status.status.UnitFileState != 'enabled'
+
+    - name: Verify ptp_vsock.service is enabled
+      ansible.builtin.systemd:
+        name: ptp_vsock.service
+      register: ptp_vsock_status
+      failed_when: ptp_vsock_status.status.UnitFileState != 'enabled'
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "PTP status and vsock services successfully configured"

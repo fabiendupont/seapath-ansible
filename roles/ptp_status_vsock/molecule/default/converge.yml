@@ -1,0 +1,8 @@
+---
+# Converge playbook for ptp_status_vsock role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: ptp_status_vsock
