@@ -1,0 +1,29 @@
+---
+# Converge playbook for iptables role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Ensure iptables is installed
+      ansible.builtin.package:
+        name:
+          - iptables
+          - iptables-persistent
+        state: present
+
+    - name: Ensure /etc/iptables directory exists
+      ansible.builtin.file:
+        path: /etc/iptables
+        state: directory
+        mode: '0755'
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: iptables

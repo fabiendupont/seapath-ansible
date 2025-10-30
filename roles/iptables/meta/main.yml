@@ -1,5 +1,7 @@
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: iptables
   author: "Seapath"
   description: configures iptables
   license: Apache-2.0
