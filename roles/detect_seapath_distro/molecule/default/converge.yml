@@ -1,0 +1,8 @@
+---
+# Converge playbook for detect_seapath_distro role testing
+
+- name: Converge
+  hosts: all
+  gather_facts: false
+  roles:
+    - role: detect_seapath_distro

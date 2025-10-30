@@ -1,0 +1,42 @@
+---
+# detect_seapath_distro role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: detect-distro-debian
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+
+  - name: detect-distro-centos
+    box: generic/centos9s
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+
+verifier:
+  name: ansible

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: detect_seapath_distro
   author: "Seapath"
   description: Detect the SEAPATH distribution and set seapath_distro fact.
   license: Apache-2.0

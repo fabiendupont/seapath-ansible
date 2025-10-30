@@ -1,0 +1,46 @@
+---
+# Verify playbook for detect_seapath_distro role testing
+
+- name: Verify Debian detection
+  hosts: detect-distro-debian
+  gather_facts: false
+  roles:
+    - name: detect_seapath_distro
+  tasks:
+    - name: Verify seapath_distro is set to Debian
+      ansible.builtin.assert:
+        that:
+          - seapath_distro is defined
+          - seapath_distro == "Debian"
+        fail_msg: "seapath_distro should be 'Debian', got '{{ seapath_distro | default('undefined') }}'"
+        success_msg: "seapath_distro correctly detected as Debian"
+
+    - name: Verify is_using_cephadm is set correctly for Debian
+      ansible.builtin.assert:
+        that:
+          - is_using_cephadm is defined
+          - is_using_cephadm == false
+        fail_msg: "is_using_cephadm should be false for Debian"
+        success_msg: "is_using_cephadm correctly set to false for Debian"
+
+- name: Verify CentOS detection
+  hosts: detect-distro-centos
+  gather_facts: false
+  roles:
+    - name: detect_seapath_distro
+  tasks:
+    - name: Verify seapath_distro is set to CentOS
+      ansible.builtin.assert:
+        that:
+          - seapath_distro is defined
+          - seapath_distro == "CentOS"
+        fail_msg: "seapath_distro should be 'CentOS', got '{{ seapath_distro | default('undefined') }}'"
+        success_msg: "seapath_distro correctly detected as CentOS"
+
+    - name: Verify is_using_cephadm is set correctly for CentOS
+      ansible.builtin.assert:
+        that:
+          - is_using_cephadm is defined
+          - is_using_cephadm == false
+        fail_msg: "is_using_cephadm should be false for CentOS"
+        success_msg: "is_using_cephadm correctly set to false for CentOS"
