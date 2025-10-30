@@ -1,0 +1,42 @@
+---
+# Verify playbook for network_basics role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify FAI network configuration files are removed
+      ansible.builtin.stat:
+        path: "/etc/systemd/network/{{ item }}.network"
+      register: fai_files
+      failed_when: fai_files.stat.exists
+      loop:
+        - 01-init
+        - 00-init-dhcp
+        - 00-init
+
+    - name: Verify 80-wired.network file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/network/80-wired.network
+      register: wired_network
+      failed_when: not wired_network.stat.exists
+
+    - name: Verify 80-wired.network has correct permissions
+      ansible.builtin.assert:
+        that:
+          - wired_network.stat.mode == '0640'
+          - wired_network.stat.pw_name == 'root'
+          - wired_network.stat.gr_name == 'systemd-network'
+        fail_msg: "80-wired.network has incorrect permissions or ownership"
+        success_msg: "80-wired.network has correct permissions and ownership"
+
+    - name: Verify 80-wired.network file content
+      ansible.builtin.command: cat /etc/systemd/network/80-wired.network
+      register: wired_content
+      changed_when: false
+
+    - name: Display 80-wired.network content for verification
+      ansible.builtin.debug:
+        msg: "80-wired.network content: {{ wired_content.stdout_lines }}"

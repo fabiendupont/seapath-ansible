@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: network_basics
   author: "Seapath"
   description: does the basic network stuff, cleaning and setting defaults
   license: Apache-2.0
