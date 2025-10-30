@@ -1,0 +1,55 @@
+---
+# Verify playbook for ceph_expansion_lv role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Gather LVM facts
+      ansible.builtin.setup:
+        filter: ansible_lvm
+
+    - name: Display LVM facts
+      ansible.builtin.debug:
+        var: ansible_lvm
+
+    - name: Verify vg_ceph volume group exists
+      ansible.builtin.assert:
+        that:
+          - ansible_lvm.vgs.vg_ceph is defined
+        fail_msg: "Volume group vg_ceph not found"
+        success_msg: "Volume group vg_ceph exists"
+
+    - name: Verify lv_ceph logical volume exists
+      ansible.builtin.assert:
+        that:
+          - ansible_lvm.lvs.lv_ceph is defined
+        fail_msg: "Logical volume lv_ceph not found"
+        success_msg: "Logical volume lv_ceph exists"
+
+    - name: Get LV size
+      ansible.builtin.command: lvs /dev/vg_ceph/lv_ceph --noheadings -o lv_size --units m
+      register: lv_size_output
+      changed_when: false
+
+    - name: Display LV size
+      ansible.builtin.debug:
+        msg: "LV size after expansion: {{ lv_size_output.stdout }}"
+
+    - name: Extract size in MB
+      ansible.builtin.set_fact:
+        lv_size_mb: "{{ lv_size_output.stdout | regex_replace('[^0-9.]', '') | float }}"
+
+    - name: Verify LV was expanded to approximately 1900MB
+      ansible.builtin.assert:
+        that:
+          - lv_size_mb | float > 1800  # At least 1800MB
+          - lv_size_mb | float < 2000  # Less than 2000MB
+        fail_msg: "LV was not expanded to ~1900MB (actual: {{ lv_size_mb }}MB)"
+        success_msg: "LV successfully expanded from 900MB to {{ lv_size_mb }}MB"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Ceph LV expansion role completed successfully - LV expanded from 900MB to ~1900MB"

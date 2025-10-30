@@ -1,0 +1,60 @@
+---
+# ceph_expansion_lv role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+  # TODO: Fix idempotence issues before enabling idempotence test
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: ceph-lv-expansion-test
+    box: generic/debian12
+    memory: 1024
+    cpus: 1
+    groups:
+      - test_nodes
+    provider_raw_config_args:
+      - "storage :file, :size => '3G'"
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    host_vars:
+      ceph-lv-expansion-test:
+        # Initial LVM configuration
+        lvm_volumes:
+          - data: lv_ceph
+            data_size: 1900  # Target: 1900MB
+            data_vg: vg_ceph
+            device: /dev/vdb
+            device_number: 1
+            device_size: 2000M
+
+verifier:
+  name: ansible

@@ -1,0 +1,52 @@
+---
+# Converge playbook for ceph_expansion_lv role testing
+# This tests LV expansion (Ceph OSD resize is skipped without actual Ceph)
+
+- name: Pre-converge setup - Create initial LVM setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Install required packages
+      ansible.builtin.package:
+        name:
+          - lvm2
+          - parted
+        state: present
+
+    - name: Wait for vdb device to appear
+      ansible.builtin.wait_for:
+        path: /dev/vdb
+        timeout: 30
+
+    - name: Create GPT partition table and partition on vdb
+      community.general.parted:
+        device: /dev/vdb
+        label: gpt
+        number: 1
+        state: present
+        part_start: 0%
+        part_end: 2GiB
+
+    - name: Create physical volume on vdb1
+      ansible.builtin.command: pvcreate /dev/vdb1
+      changed_when: true
+      failed_when: false
+
+    - name: Create volume group vg_ceph
+      ansible.builtin.command: vgcreate vg_ceph /dev/vdb1
+      changed_when: true
+      failed_when: false
+
+    - name: Create small logical volume lv_ceph (900MB initially)
+      ansible.builtin.command: lvcreate -L 900M -n lv_ceph vg_ceph
+      changed_when: true
+      failed_when: false
+
+    - name: Gather facts to populate ansible_lvm
+      ansible.builtin.setup:
+
+- name: Converge - Expand LV
+  hosts: all
+  become: true
+  roles:
+    - role: ceph_expansion_lv
