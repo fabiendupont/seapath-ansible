@@ -1,0 +1,61 @@
+---
+# Verify playbook for network_netplan role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify /etc/netplan directory exists
+      ansible.builtin.stat:
+        path: /etc/netplan
+      register: netplan_dir
+      failed_when: not netplan_dir.stat.exists or not netplan_dir.stat.isdir
+
+    - name: Verify /etc/netplan directory permissions
+      ansible.builtin.assert:
+        that:
+          - netplan_dir.stat.mode == '0755'
+          - netplan_dir.stat.pw_name == 'root'
+          - netplan_dir.stat.gr_name == 'root'
+        fail_msg: "/etc/netplan has incorrect permissions or ownership"
+        success_msg: "/etc/netplan has correct permissions and ownership"
+
+    - name: Verify netplan configuration file exists
+      ansible.builtin.stat:
+        path: /etc/netplan/01-netcfg.yaml
+      register: netplan_file
+      failed_when: not netplan_file.stat.exists
+
+    - name: Verify netplan configuration file permissions
+      ansible.builtin.assert:
+        that:
+          - netplan_file.stat.mode == '0600'
+          - netplan_file.stat.pw_name == 'root'
+          - netplan_file.stat.gr_name == 'root'
+        fail_msg: "Netplan config file has incorrect permissions or ownership"
+        success_msg: "Netplan config file has correct permissions and ownership"
+
+    - name: Verify netplan configuration file content
+      ansible.builtin.command: cat /etc/netplan/01-netcfg.yaml
+      register: netplan_content
+      changed_when: false
+
+    - name: Verify netplan file has expected content
+      ansible.builtin.assert:
+        that:
+          - "'network:' in netplan_content.stdout"
+          - "'version: 2' in netplan_content.stdout"
+          - "'renderer: networkd' in netplan_content.stdout"
+          - "'eth1:' in netplan_content.stdout"
+          - "'dhcp4: true' in netplan_content.stdout"
+          - "'optional: true' in netplan_content.stdout"
+        fail_msg: "Netplan configuration content is incorrect"
+        success_msg: "Netplan configuration has correct content"
+
+    # Note: need_reboot is a fact set during converge but not persisted
+    # We verify the role's behavior by checking the config was applied correctly
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Netplan configuration successfully deployed and verified"

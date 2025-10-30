@@ -1,0 +1,8 @@
+# Test netplan configuration for secondary interface
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth1:
+      dhcp4: true
+      optional: true

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: network_netplan
   author: "Seapath"
   description: configures the network via Netplan
   license: Apache-2.0

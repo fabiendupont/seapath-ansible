@@ -1,0 +1,22 @@
+---
+# Converge playbook for network_netplan role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Ensure netplan is installed
+      ansible.builtin.package:
+        name:
+          - netplan.io
+        state: present
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: network_netplan
