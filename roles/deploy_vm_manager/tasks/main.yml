@@ -4,11 +4,14 @@
 ---
 - include_vars: "{{ seapath_distro }}.yml"
 
-- name: Ensure required packages are installed
+- name: Ensure required packages are present
   ansible.builtin.package:
     name:
+      - build-essential
+      - libvirt-daemon-system
       - libvirt-dev
       - pkg-config
+      - python3-dev
       - python3-pip
     state: present
 
