@@ -1,0 +1,175 @@
+---
+# Verify playbook for debian_physical_machine role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify sysctl bridge configuration exists
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/00-bridge_nf_call.conf
+      register: sysctl_bridge
+      failed_when: not sysctl_bridge.stat.exists
+
+    - name: Verify /tmp/src directory exists
+      ansible.builtin.stat:
+        path: /tmp/src
+      register: tmp_src
+      failed_when: not tmp_src.stat.exists or not tmp_src.stat.isdir
+
+    - name: Verify resource-agents package is installed
+      ansible.builtin.package:
+        name: resource-agents
+        state: present
+      check_mode: true
+      register: resource_agents_check
+      failed_when: resource_agents_check is changed
+
+    - name: Verify seapath resource directory exists
+      ansible.builtin.stat:
+        path: /usr/lib/ocf/resource.d/seapath
+      register: seapath_ra_dir
+      failed_when: not seapath_ra_dir.stat.exists or not seapath_ra_dir.stat.isdir
+
+    - name: Verify chrony-wait service exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/chrony-wait.service
+      register: chrony_wait
+      failed_when: not chrony_wait.stat.exists
+
+    - name: Verify chrony-wait service is enabled
+      ansible.builtin.systemd:
+        name: chrony-wait.service
+      register: chrony_wait_status
+      failed_when: chrony_wait_status.status.UnitFileState != "enabled"
+
+    - name: Verify br_netfilter module in /etc/modules
+      ansible.builtin.command: grep -q '^br_netfilter$' /etc/modules
+      changed_when: false
+      failed_when: false
+      register: br_netfilter_check
+
+    - name: Assert br_netfilter is configured
+      ansible.builtin.assert:
+        that:
+          - br_netfilter_check.rc == 0
+        fail_msg: "br_netfilter not found in /etc/modules"
+        success_msg: "br_netfilter correctly configured in /etc/modules"
+
+    - name: Verify raid6_pq module in /etc/modules
+      ansible.builtin.command: grep -q '^raid6_pq$' /etc/modules
+      changed_when: false
+      failed_when: false
+      register: raid6_pq_check
+
+    - name: Assert raid6_pq is configured
+      ansible.builtin.assert:
+        that:
+          - raid6_pq_check.rc == 0
+        fail_msg: "raid6_pq not found in /etc/modules"
+        success_msg: "raid6_pq correctly configured in /etc/modules"
+
+    - name: Verify libvirtd configuration for machine-id UUID
+      ansible.builtin.command: grep -q '^host_uuid_source = "machine-id"' /etc/libvirt/libvirtd.conf
+      changed_when: false
+      failed_when: false
+      register: libvirt_uuid_check
+
+    - name: Assert libvirtd UUID source is correctly configured
+      ansible.builtin.assert:
+        that:
+          - libvirt_uuid_check.rc == 0
+        fail_msg: "libvirtd host_uuid_source not set to machine-id"
+        success_msg: "libvirtd correctly configured to use machine-id for UUID"
+
+    - name: Verify admin user is in libvirt group
+      ansible.builtin.command: groups {{ admin_user }}
+      register: user_groups
+      changed_when: false
+      failed_when: "'libvirt' not in user_groups.stdout"
+
+    - name: Verify libvirt user exists
+      ansible.builtin.command: id -u libvirt
+      register: libvirt_user
+      changed_when: false
+      failed_when: libvirt_user.rc != 0
+
+    - name: Verify lvm2 package is installed
+      ansible.builtin.package:
+        name: lvm2
+        state: present
+      check_mode: true
+      register: lvm2_check
+      failed_when: lvm2_check is changed
+
+    - name: Verify initramfs scripts exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: initramfs_scripts
+      failed_when: not initramfs_scripts.stat.exists
+      loop:
+        - /etc/initramfs-tools/scripts/init-top/init_log
+        - /etc/initramfs-tools/scripts/init-premount/lvm_snapshot_rebooter
+        - /etc/initramfs-tools/scripts/init-bottom/rebooter
+
+    - name: Verify rebooter.conf exists
+      ansible.builtin.stat:
+        path: /etc/initramfs-tools/conf.d/rebooter.conf
+      register: rebooter_conf
+      failed_when: not rebooter_conf.stat.exists
+
+    - name: Verify initramfs uses busybox
+      ansible.builtin.command: grep -q '^BUSYBOX=y' /etc/initramfs-tools/initramfs.conf
+      changed_when: false
+      failed_when: false
+      register: busybox_check
+
+    - name: Assert busybox is enabled
+      ansible.builtin.assert:
+        that:
+          - busybox_check.rc == 0
+        fail_msg: "BUSYBOX not enabled in initramfs.conf"
+        success_msg: "BUSYBOX correctly enabled"
+
+    - name: Verify rbd type in lvm.conf
+      ansible.builtin.command: grep -q 'types = \[ "rbd", 1024 \]' /etc/lvm/lvm.conf
+      changed_when: false
+      failed_when: false
+      register: lvm_rbd_check
+
+    - name: Assert rbd type is configured in lvm.conf
+      ansible.builtin.assert:
+        that:
+          - lvm_rbd_check.rc == 0
+        fail_msg: "rbd type not found in /etc/lvm/lvm.conf"
+        success_msg: "rbd type correctly configured in lvm.conf"
+
+    - name: Verify OpenVSwitch package is installed
+      ansible.builtin.package:
+        name: openvswitch-switch
+        state: present
+      check_mode: true
+      register: ovs_check
+      failed_when: ovs_check is changed
+
+    - name: Verify ovs-vswitchd service directory exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/ovs-vswitchd.service.d
+      register: ovs_service_dir
+      failed_when: not ovs_service_dir.stat.exists or not ovs_service_dir.stat.isdir
+
+    - name: Check for Debian 12 specific udev rules
+      ansible.builtin.stat:
+        path: /etc/udev/rules.d/69-lvm.rules
+      register: udev_lvm
+      when: ansible_distribution == 'Debian' and ansible_distribution_version | int >= 12
+
+    - name: Verify udev lvm rules on Debian 12+
+      ansible.builtin.assert:
+        that:
+          - udev_lvm.stat.exists
+        fail_msg: "69-lvm.rules not found for Debian 12+"
+        success_msg: "udev lvm rules correctly installed"
+      when: ansible_distribution == 'Debian' and ansible_distribution_version | int >= 12

@@ -1,0 +1,14 @@
+---
+# Converge playbook for debian_physical_machine role testing
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    # The debian role install prerequisites
+    - role: debian
+      vars:
+        admin_user: vagrant
+        admin_ssh_keys: []
+    # The debian_hypervisor installs libvirt packages
+    - role: debian_hypervisor
+    - role: debian_physical_machine

@@ -40,6 +40,12 @@
   include_role:
     name: deploy_python3_setup_ovs
 
+- name: Ensure packages are present
+  ansible.builtin.package:
+    name:
+      - resource-agents
+    state: present
+
 - name: Create /usr/lib/ocf/resource.d/seapath on hosts
   file:
     path: /usr/lib/ocf/resource.d/seapath
@@ -57,6 +63,7 @@
         rsync_opts:
           - "--chmod=F755"
           - "--chown=root:root"
+        use_ssh_args: true
 
     - name: Copy VirtualDomain from heartbeat to seapath
       copy:
@@ -200,6 +207,12 @@
   ansible.builtin.systemd:
     name: docker.service
 
+- name: Ensure lvm2 package is present
+  ansible.builtin.package:
+    name:
+      - lvm2
+    state: present
+
 - name: "Add initramfs-tools scripts: script file (LVM rebooter and log handling)"
   ansible.builtin.copy:
     src: initramfs-tools/scripts/
@@ -251,6 +264,12 @@
     path: /etc/lvm/lvm.conf
     insertafter: 'devices {'
     line: "        types = [ \"rbd\", 1024 ]"
+    state: present
+
+- name: Ensure OpenVSwitch packages are present
+  ansible.builtin.package:
+    name:
+      - openvswitch-switch
     state: present
 
 - name: Create ovs-vswitchd.service.d directory

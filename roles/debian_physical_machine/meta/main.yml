@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ---
 galaxy_info:
+  namespace: seapath
+  role_name: debian_physical_machine
   author: "Seapath"
   description: Debian prerequisites for a physical machine
   license: Apache-2.0

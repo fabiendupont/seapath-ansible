@@ -1,0 +1,58 @@
+---
+# debian_physical_machine role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+  # TODO: Fix idempotence issues before enabling idempotence test
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: physical-machine-test
+    box: generic/debian12
+    memory: 2048
+    cpus: 2
+    groups:
+      - test_nodes
+      - cluster_machines
+    networks:
+      - name: default
+        type: dhcp
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test-specific variables
+        ansible_python_interpreter: /usr/bin/python3
+        admin_user: vagrant
+        seapath_distro: Debian
+
+verifier:
+  name: ansible
