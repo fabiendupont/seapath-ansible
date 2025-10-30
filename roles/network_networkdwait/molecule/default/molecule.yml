@@ -1,0 +1,43 @@
+---
+# network_networkdwait role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: networkdwait-test
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+      - cluster_machines
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test with cluster network (wait for team0)
+        network_networkdwait_no_cluster_network: false
+        interfaces_to_wait_for:
+          - eth0
+
+verifier:
+  name: ansible

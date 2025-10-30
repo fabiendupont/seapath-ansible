@@ -1,0 +1,62 @@
+---
+# Verify playbook for network_networkdwait role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify systemd-networkd-wait-online service directory exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/systemd-networkd-wait-online.service.d
+      register: service_dir
+      failed_when: not service_dir.stat.exists or not service_dir.stat.isdir
+
+    - name: Verify override.conf exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf
+      register: override_file
+      failed_when: not override_file.stat.exists
+
+    - name: Read override.conf content
+      ansible.builtin.command: cat /etc/systemd/system/systemd-networkd-wait-online.service.d/override.conf
+      register: override_content
+      changed_when: false
+
+    - name: Display override.conf content
+      ansible.builtin.debug:
+        msg: "{{ override_content.stdout_lines }}"
+
+    - name: Verify override.conf contains ExecStart override
+      ansible.builtin.assert:
+        that:
+          - "'[Service]' in override_content.stdout"
+          - "'ExecStart=' in override_content.stdout"
+          - "'/lib/systemd/systemd-networkd-wait-online' in override_content.stdout"
+        fail_msg: "override.conf missing required ExecStart configuration"
+        success_msg: "override.conf has correct structure"
+
+    - name: Verify eth0 interface is in wait list
+      ansible.builtin.assert:
+        that:
+          - "'-i eth0' in override_content.stdout"
+        fail_msg: "eth0 not in interface wait list"
+        success_msg: "eth0 correctly configured in wait list"
+
+    - name: Verify team0 interface is in wait list (cluster mode)
+      ansible.builtin.assert:
+        that:
+          - "'-i team0' in override_content.stdout"
+        fail_msg: "team0 not in interface wait list for cluster machine"
+        success_msg: "team0 correctly configured in wait list"
+
+    - name: Verify systemd-networkd-wait-online service is enabled
+      ansible.builtin.systemd:
+        name: systemd-networkd-wait-online
+      register: service_status
+      failed_when: service_status.status.UnitFileState != "enabled"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "systemd-networkd-wait-online service successfully configured"
