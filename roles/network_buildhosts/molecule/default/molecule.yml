@@ -1,0 +1,54 @@
+---
+# network_buildhosts role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: buildhosts-test1
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+      - cluster_machines
+
+  - name: buildhosts-test2
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+      - cluster_machines
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    host_vars:
+      buildhosts-test1:
+        hostname: test-node1
+        ip_addr: 192.168.1.10
+        cluster_ip_addr: 10.0.0.10
+      buildhosts-test2:
+        hostname: test-node2
+        ip_addr: 192.168.1.11
+        cluster_ip_addr: 10.0.0.11
+
+verifier:
+  name: ansible

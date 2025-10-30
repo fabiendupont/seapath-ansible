@@ -1,0 +1,60 @@
+---
+# Verify playbook for network_buildhosts role testing
+
+- name: Verify buildhosts-test1
+  hosts: buildhosts-test1
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify hostname is set correctly
+      ansible.builtin.command: hostname
+      register: current_hostname
+      changed_when: false
+      failed_when: current_hostname.stdout != 'test-node1'
+
+    - name: Verify /etc/hosts contains local entry
+      ansible.builtin.command: grep '10.0.0.10.*buildhosts-test1.*test-node1' /etc/hosts
+      register: local_host_entry
+      changed_when: false
+      failed_when: local_host_entry.rc != 0
+
+    - name: Verify /etc/hosts contains peer entry
+      ansible.builtin.command: grep '10.0.0.11.*buildhosts-test2.*test-node2' /etc/hosts
+      register: peer_host_entry
+      changed_when: false
+      failed_when: peer_host_entry.rc != 0
+
+    - name: Verify debian entry is removed
+      ansible.builtin.command: grep '^127.*debian' /etc/hosts
+      register: debian_entry
+      changed_when: false
+      failed_when: debian_entry.rc == 0
+
+- name: Verify buildhosts-test2
+  hosts: buildhosts-test2
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify hostname is set correctly
+      ansible.builtin.command: hostname
+      register: current_hostname
+      changed_when: false
+      failed_when: current_hostname.stdout != 'test-node2'
+
+    - name: Verify /etc/hosts contains local entry
+      ansible.builtin.command: grep '10.0.0.11.*buildhosts-test2.*test-node2' /etc/hosts
+      register: local_host_entry
+      changed_when: false
+      failed_when: local_host_entry.rc != 0
+
+    - name: Verify /etc/hosts contains peer entry
+      ansible.builtin.command: grep '10.0.0.10.*buildhosts-test1.*test-node1' /etc/hosts
+      register: peer_host_entry
+      changed_when: false
+      failed_when: peer_host_entry.rc != 0
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Hosts file and hostname successfully configured on all nodes"

@@ -1,0 +1,8 @@
+---
+# Converge playbook for network_buildhosts role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: network_buildhosts
