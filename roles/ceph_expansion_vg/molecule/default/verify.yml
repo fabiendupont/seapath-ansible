@@ -1,0 +1,59 @@
+---
+# Verify playbook for ceph_expansion_vg role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Gather LVM facts
+      ansible.builtin.setup:
+        filter: ansible_lvm
+
+    - name: Display LVM facts
+      ansible.builtin.debug:
+        var: ansible_lvm
+
+    - name: Verify vg_ceph volume group exists
+      ansible.builtin.assert:
+        that:
+          - ansible_lvm.vgs.vg_ceph is defined
+        fail_msg: "Volume group vg_ceph not found"
+        success_msg: "Volume group vg_ceph exists"
+
+    - name: Get partition size
+      community.general.parted:
+        device: /dev/vdb
+      register: vdb_info
+
+    - name: Display partition info
+      ansible.builtin.debug:
+        var: vdb_info
+
+    - name: Verify partition 1 was expanded
+      ansible.builtin.assert:
+        that:
+          - vdb_info.partitions[0].size > 1024 * 1024  # Greater than 1GB in KiB
+        fail_msg: "Partition was not expanded"
+        success_msg: "Partition successfully expanded to ~2GB"
+
+    - name: Get PV size
+      ansible.builtin.command: pvs /dev/vdb1 --noheadings -o pv_size --units g
+      register: pv_size_output
+      changed_when: false
+
+    - name: Display PV size
+      ansible.builtin.debug:
+        msg: "PV size after expansion: {{ pv_size_output.stdout }}"
+
+    - name: Verify PV was resized (should be approximately 2GB, accounting for alignment)
+      ansible.builtin.assert:
+        that:
+          - "'1.9' in pv_size_output.stdout or '2.0' in pv_size_output.stdout"
+        fail_msg: "PV was not resized to ~2GB (actual: {{ pv_size_output.stdout }})"
+        success_msg: "PV successfully resized to {{ pv_size_output.stdout.strip() }}"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Ceph VG expansion role completed successfully - partition and PV expanded from 1GB to 2GB"
