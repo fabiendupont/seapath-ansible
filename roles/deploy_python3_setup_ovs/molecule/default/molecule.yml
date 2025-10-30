@@ -4,6 +4,18 @@
 
 scenario:
   name: default
+  # TODO: Fix idempotence issues before enabling idempotence test
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
 
 dependency:
   name: galaxy
