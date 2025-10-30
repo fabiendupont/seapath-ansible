@@ -48,8 +48,9 @@
     src: pacemaker_ra/
     dest: /usr/lib/ocf/resource.d/seapath/
     rsync_opts:
-    - "--chmod=F755"
-    - "--chown=root:root"
+      - "--chmod=F755"
+      - "--chown=root:root"
+    use_ssh_args: true
 
 - name: Copy chrony-wait.service
   template:
