@@ -47,9 +47,10 @@
       src: scripts/
       dest: /usr/local/bin/
       rsync_opts:
-      - "--include=*"
-      - "--chmod=F755"
-      - "--chown=root:root"
+        - "--include=*"
+        - "--chmod=F755"
+        - "--chown=root:root"
+      use_ssh_args: true
   - name: Snmp config
     ansible.builtin.template:
       src: snmpd.conf.j2
