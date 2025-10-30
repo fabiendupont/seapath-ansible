@@ -1,0 +1,17 @@
+---
+# Converge playbook for network_clusternetwork role testing
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    # Detect distribution first (required by deploy_vm_manager)
+    - role: detect_seapath_distro
+    # debian_physical_machine installs openvswitch-switch
+    - role: debian
+      vars:
+        admin_user: vagrant
+        admin_ssh_keys: []
+    - role: debian_hypervisor
+    - role: debian_physical_machine
+    - role: network_clusternetwork

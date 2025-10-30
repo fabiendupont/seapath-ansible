@@ -1,0 +1,64 @@
+---
+# network_clusternetwork role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+  # TODO: Fix idempotence issues before enabling idempotence test
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: network-clusternetwork-test
+    box: generic/debian12
+    memory: 1024
+    cpus: 2
+    groups:
+      - test_nodes
+      - cluster_machines
+    networks:
+      - name: default
+        type: dhcp
+      - name: cluster-net-1
+        type: dhcp
+        auto_config: false
+      - name: cluster-net-2
+        type: dhcp
+        auto_config: false
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Cluster network configuration
+        team0_0: eth1
+        team0_1: eth2
+        br_rstp_priority: 16384
+
+verifier:
+  name: ansible

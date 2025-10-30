@@ -1,0 +1,51 @@
+---
+# Verify playbook for network_clusternetwork role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify team0 bridge exists in OVS
+      ansible.builtin.command: ovs-vsctl br-exists team0
+      register: team0_exists
+      changed_when: false
+      failed_when: team0_exists.rc != 0
+
+    - name: Get team0 bridge configuration
+      ansible.builtin.command: ovs-vsctl show
+      register: ovs_config
+      changed_when: false
+
+    - name: Display OVS configuration
+      ansible.builtin.debug:
+        msg: "{{ ovs_config.stdout_lines }}"
+
+    - name: Verify team0_0 interface is in team0 bridge
+      ansible.builtin.command: ovs-vsctl port-to-br eth1
+      register: team0_0_port
+      changed_when: false
+      failed_when: team0_0_port.stdout != 'team0'
+
+    - name: Verify team0_1 interface is in team0 bridge
+      ansible.builtin.command: ovs-vsctl port-to-br eth2
+      register: team0_1_port
+      changed_when: false
+      failed_when: team0_1_port.stdout != 'team0'
+
+    - name: Verify RSTP is enabled on team0 bridge
+      ansible.builtin.shell: ovs-vsctl get Bridge team0 rstp_enable
+      register: rstp_status
+      changed_when: false
+      failed_when: rstp_status.stdout != 'true'
+
+    - name: Verify RSTP priority is set correctly
+      ansible.builtin.shell: ovs-vsctl get Bridge team0 other_config:rstp-priority
+      register: rstp_priority
+      changed_when: false
+      failed_when: rstp_priority.stdout != '"16384"'
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Cluster network successfully configured with team0 bridge"
