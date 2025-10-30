@@ -1,0 +1,23 @@
+---
+# Converge playbook for network_guestsinterfaces role testing
+
+- name: Pre-converge setup
+  hosts: all
+  become: true
+  tasks:
+    - name: Ensure systemd-networkd group exists
+      ansible.builtin.group:
+        name: systemd-network
+        state: present
+
+    - name: Ensure /etc/systemd/network directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/network
+        state: directory
+        mode: '0755'
+
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: network_guestsinterfaces

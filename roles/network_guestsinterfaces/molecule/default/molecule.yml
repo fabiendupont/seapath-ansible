@@ -1,0 +1,43 @@
+---
+# network_guestsinterfaces role test scenario
+# Compatible with Ansible 2.10 and Molecule 3.x
+
+scenario:
+  name: default
+
+driver:
+  name: vagrant
+  provider:
+    name: libvirt
+
+platforms:
+  - name: guestsinterfaces-test
+    box: generic/debian12
+    memory: 512
+    cpus: 1
+    groups:
+      - test_nodes
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      host_key_checking: false
+      timeout: 30
+  env:
+    ANSIBLE_COLLECTIONS_PATH: ../../../../collections
+    ANSIBLE_ROLES_PATH: ../../../../roles
+  playbooks:
+    converge: converge.yml
+    verify: verify.yml
+  inventory:
+    group_vars:
+      test_nodes:
+        # Test interfaces configuration
+        interfaces_on_br0:
+          tap-test1: 100              # Access port on VLAN 100
+          tap-test2: [200, 201]       # Trunk port on VLANs 200, 201
+          tap-test3: []               # No filtering (all VLANs)
+
+verifier:
+  name: ansible

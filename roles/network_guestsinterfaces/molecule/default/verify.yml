@@ -1,0 +1,90 @@
+---
+# Verify playbook for network_guestsinterfaces role testing
+
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Verify tap-test1 netdev file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/network/00-tap-test1.netdev
+      register: tap1_netdev
+      failed_when: not tap1_netdev.stat.exists
+
+    - name: Verify tap-test1 network file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/network/00-tap-test1.network
+      register: tap1_network
+      failed_when: not tap1_network.stat.exists
+
+    - name: Read tap-test1 netdev content
+      ansible.builtin.command: cat /etc/systemd/network/00-tap-test1.netdev
+      register: tap1_netdev_content
+      changed_when: false
+
+    - name: Verify tap-test1 netdev is configured as tap device
+      ansible.builtin.assert:
+        that:
+          - "'[NetDev]' in tap1_netdev_content.stdout"
+          - "'Name=tap-test1' in tap1_netdev_content.stdout"
+          - "'Kind=tap' in tap1_netdev_content.stdout"
+        fail_msg: "tap-test1 netdev configuration incorrect"
+        success_msg: "tap-test1 netdev correctly configured"
+
+    - name: Read tap-test1 network content
+      ansible.builtin.command: cat /etc/systemd/network/00-tap-test1.network
+      register: tap1_network_content
+      changed_when: false
+
+    - name: Verify tap-test1 network is on br0 with VLAN 100
+      ansible.builtin.assert:
+        that:
+          - "'Bridge=br0' in tap1_network_content.stdout"
+          - "'VLAN=100' in tap1_network_content.stdout"
+          - "'PVID=100' in tap1_network_content.stdout"
+          - "'EgressUntagged=100' in tap1_network_content.stdout"
+        fail_msg: "tap-test1 network VLAN configuration incorrect"
+        success_msg: "tap-test1 access port correctly configured for VLAN 100"
+
+    - name: Read tap-test2 network content
+      ansible.builtin.command: cat /etc/systemd/network/00-tap-test2.network
+      register: tap2_network_content
+      changed_when: false
+
+    - name: Verify tap-test2 trunk port configuration
+      ansible.builtin.assert:
+        that:
+          - "'Bridge=br0' in tap2_network_content.stdout"
+          - "'VLAN=200' in tap2_network_content.stdout"
+          - "'VLAN=201' in tap2_network_content.stdout"
+        fail_msg: "tap-test2 trunk port configuration incorrect"
+        success_msg: "tap-test2 trunk port correctly configured for VLANs 200, 201"
+
+    - name: Read tap-test3 network content
+      ansible.builtin.command: cat /etc/systemd/network/00-tap-test3.network
+      register: tap3_network_content
+      changed_when: false
+
+    - name: Verify tap-test3 allows all VLANs
+      ansible.builtin.assert:
+        that:
+          - "'Bridge=br0' in tap3_network_content.stdout"
+          - "'VLAN=1-4094' in tap3_network_content.stdout"
+        fail_msg: "tap-test3 all-VLAN configuration incorrect"
+        success_msg: "tap-test3 correctly configured to allow all VLANs"
+
+    - name: Verify all files have correct permissions
+      ansible.builtin.assert:
+        that:
+          - tap1_netdev.stat.mode == '0644'
+          - tap1_network.stat.mode == '0644'
+          - tap1_netdev.stat.gr_name == 'systemd-network'
+          - tap1_network.stat.gr_name == 'systemd-network'
+        fail_msg: "Network configuration files have incorrect permissions"
+        success_msg: "All files have correct permissions and ownership"
+
+    - name: Display verification success
+      ansible.builtin.debug:
+        msg: "Guest br0 interfaces successfully configured"
