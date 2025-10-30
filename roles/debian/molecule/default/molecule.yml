@@ -45,7 +45,6 @@ provisioner:
         # Test-specific variables
         admin_user: vagrant
         admin_ssh_keys: []
-        apt_repo: ""
 
 verifier:
   name: ansible
