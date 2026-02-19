@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- name: Restart syslog-ng
+- name: Restart rsyslog
   ansible.builtin.systemd:
-    name: syslog-ng
+    name: rsyslog
     state: restarted
     enabled: yes
 

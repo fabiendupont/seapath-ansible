@@ -1,0 +1,6 @@
+# Copyright (C) 2025 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+---
+network_nmstate_no_cluster_network: false
+network_nmstate_apply_config: false

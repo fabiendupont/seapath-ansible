@@ -155,11 +155,18 @@
     name: libvirtd.service
     state: restarted
 
-- name: "Add initramfs-tools scripts: script file (LVM rebooter and log handling)"
+- name: Install dracut SEAPATH module
   ansible.builtin.copy:
-    src: initramfs-tools/scripts/
-    dest: /etc/initramfs-tools/scripts/
+    src: dracut/modules.d/90seapath/
+    dest: /usr/lib/dracut/modules.d/90seapath/
     mode: '0755'
+  notify: Rebuild initramfs if necessary
+
+- name: Install dracut SEAPATH configuration
+  ansible.builtin.copy:
+    src: dracut/seapath.conf
+    dest: /etc/dracut.conf.d/seapath.conf
+    mode: '0644'
   notify: Rebuild initramfs if necessary
 
 - name: Get the /var/log/ device
@@ -182,15 +189,8 @@
 
 - name: Copy rebooter.conf
   template:
-    src: initramfs-tools/conf.d/rebooter.conf.j2
+    src: rebooter.conf.j2
     dest: /etc/dracut.conf.d/rebooter.conf
-
-- name: Configure initramfs-tools to use busybox
-  lineinfile:
-    dest: /etc/dracut.conf
-    regexp: "^#?BUSYBOX="
-    line: "BUSYBOX=y"
-    state: present
   notify: Rebuild initramfs if necessary
 
 - name: Add rbd type to lvm.conf
@@ -213,22 +213,26 @@
         port: 3300/tcp
         permanent: true
         state: enabled
+      notify: Reload firewalld
     - name: "Configure firewalld for ceph monitor legacy v1 port"
       ansible.posix.firewalld:
         port: 6789/tcp
         permanent: true
         state: enabled
+      notify: Reload firewalld
     - name: "Configure firewalld for ceph OSD"
       ansible.posix.firewalld:
         port: 6800-7300/tcp
         permanent: true
         state: enabled
+      notify: Reload firewalld
 
 - name: Configure firewalld for high-availability services
   ansible.posix.firewalld:
     service: high-availability
     permanent: true
     state: enabled
+  notify: Reload firewalld
 
 - name: Configure registry mirroring
   when: registry_mirror_url is defined and registry_mirror_url != ''
@@ -244,20 +248,6 @@
       ansible.builtin.copy:
         src: /tmp/registry-ca.crt
         dest: "/etc/containers/certs.d/{{ registry_mirror_url }}/ca.crt"
-        mode: '0644'
-      when: registry_tls_enabled | default(false)
-
-    - name: Create docker certs.d directory for registry
-      ansible.builtin.file:
-        path: "/etc/docker/certs.d/{{ registry_mirror_url }}"
-        state: directory
-        mode: '0755'
-      when: registry_tls_enabled | default(false)
-
-    - name: Copy registry CA certificate for docker
-      ansible.builtin.copy:
-        src: /tmp/registry-ca.crt
-        dest: "/etc/docker/certs.d/{{ registry_mirror_url }}/ca.crt"
         mode: '0644'
       when: registry_tls_enabled | default(false)
 
@@ -280,15 +270,6 @@
           location = "{{ registry_mirror_url }}"
           insecure = {{ 'false' if registry_tls_enabled | default(false) else 'true' }}
 
-    - name: Configure docker registry mirroring
-      ansible.builtin.copy:
-        content: |
-          {
-            "registry-mirrors": ["{{ 'https' if registry_tls_enabled | default(false) else 'http' }}://{{ registry_mirror_url }}"]
-          }
-        dest: /etc/docker/daemon.json
-        mode: '0644'
-
 - name: Create a symbolic link for qemu-kvm/x86-64
   ansible.builtin.file:
     src: /usr/libexec/qemu-kvm
@@ -310,19 +291,6 @@
     name: virtstoraged.socket
     state: started
     enabled: true
-
-- name: Ensure group www-data exists with GID 1033
-  group:
-    name: www-data
-    gid: 1033
-    state: present
-
-- name: Ensure user www-data exists with UID 1033 and GID 1033
-  user:
-    name: www-data
-    uid: 1033
-    group: www-data
-    shell: /bin/bash
 
 - name: Create ovs-vswitchd.service.d directory
   file:

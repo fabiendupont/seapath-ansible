@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ---
-- when: netplan_configurations is not defined
+- when:
+    - netplan_configurations is not defined
+    - ansible_os_family != "RedHat"
   block:
     - name: Create systemd-networkd-wait-online.service.d directory
       file:
@@ -18,4 +20,11 @@
     - name: Enable systemd-networkd-wait-online.service
       ansible.builtin.systemd:
         name: systemd-networkd-wait-online.service
+        enabled: yes
+
+- when: ansible_os_family == "RedHat"
+  block:
+    - name: Enable NetworkManager-wait-online.service
+      ansible.builtin.systemd:
+        name: NetworkManager-wait-online.service
         enabled: yes

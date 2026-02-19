@@ -9,5 +9,6 @@
     - cluster_machines
     - standalone
   become: true
+  gather_facts: true
   roles:
     - vmmgrapi

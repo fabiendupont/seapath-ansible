@@ -1,0 +1,47 @@
+# Copyright (C) 2025 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+---
+- name: Ensure firewalld is started and enabled
+  ansible.builtin.systemd:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Get current default firewalld zone
+  ansible.builtin.command:
+    cmd: firewall-cmd --get-default-zone
+  register: firewalld_current_zone
+  changed_when: false
+  when: firewalld_default_zone != 'public'
+
+- name: Set default firewalld zone
+  ansible.builtin.command:
+    cmd: "firewall-cmd --set-default-zone={{ firewalld_default_zone }}"
+  when:
+    - firewalld_default_zone != 'public'
+    - firewalld_current_zone.stdout | trim != firewalld_default_zone
+
+- name: Configure firewalld services
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop: "{{ firewalld_services }}"
+  notify: Reload firewalld
+
+- name: Configure firewalld ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop: "{{ firewalld_ports }}"
+  notify: Reload firewalld
+
+- name: Configure firewalld rich rules
+  ansible.posix.firewalld:
+    rich_rule: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop: "{{ firewalld_rich_rules }}"
+  notify: Reload firewalld

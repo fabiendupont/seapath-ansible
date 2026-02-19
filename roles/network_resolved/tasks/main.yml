@@ -5,6 +5,7 @@
 - when:
   - dns_servers is defined
   - netplan_configurations is not defined
+  - ansible_os_family != "RedHat"
   block:
   - name: Configure LLMNR /etc/systemd/resolved.conf
     lineinfile:
@@ -48,3 +49,4 @@
   when:
     - dns_servers is not defined
     - seapath_distro != "Yocto"
+    - ansible_os_family != "RedHat"

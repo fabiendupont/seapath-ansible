@@ -14,13 +14,21 @@
   roles:
     - detect_seapath_distro
     - role: network_basics
+      when: ansible_os_family != "RedHat"
     - role: network_systemdnetworkd
       vars:
         network_systemdnetworkd_apply_config: "{{ apply_network_config | default(false) }}"
         network_systemdnetworkd_no_cluster_network: "{{ no_cluster_network | default(false) }}"
-      when: netplan_configurations is not defined
+      when:
+        - netplan_configurations is not defined
+        - ansible_os_family != "RedHat"
     - role: network_netplan
       when: netplan_configurations is defined
+    - role: network_nmstate
+      vars:
+        network_nmstate_apply_config: "{{ apply_network_config | default(false) }}"
+        network_nmstate_no_cluster_network: "{{ no_cluster_network | default(false) }}"
+      when: ansible_os_family == "RedHat"
 
 - name: Configure cluster network
   hosts: cluster_machines
@@ -34,6 +42,7 @@
     - cluster_machines
     - standalone_machine
   become: true
+  gather_facts: true
   roles:
     - role: network_configovs
       vars:
@@ -58,15 +67,22 @@
       loop: "{{ sriov | dict2items }}"
       when: sriov is defined
 
-- name: Push iptables rules
+- name: Push firewall rules
   hosts:
     - cluster_machines
     - standalone_machine
+  become: true
+  gather_facts: true
   roles:
-    - iptables
+    - detect_seapath_distro
+    - role: firewalld
+      when: ansible_os_family == "RedHat"
+    - role: iptables
+      when: ansible_os_family != "RedHat"
 
 - name: Configure guests br0 interfaces
   become: true
+  gather_facts: true
   hosts:
     - cluster_machines
     - standalone_machine

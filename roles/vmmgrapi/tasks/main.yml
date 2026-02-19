@@ -56,8 +56,8 @@
     - name: Check permission on authentication file
       ansible.builtin.file:
         path: "{{ vmmgr_http_local_auth_file }}"
-        owner: www-data
-        group: www-data
+        owner: "{{ vmmgrapi_user }}"
+        group: "{{ vmmgrapi_user }}"
         mode: '0600'
         state: touch
       when: vmmgr_http_local_auth_file is defined
@@ -86,27 +86,31 @@
       with_items:
         - wsgi.py
 
-    - name: Copy vmmgrapi systemd files
-      ansible.builtin.copy:
-        src: "{{ item }}"
-        dest: /etc/systemd/system/{{ item }}
+    - name: Copy gunicorn.socket systemd file
+      ansible.builtin.template:
+        src: gunicorn.socket.j2
+        dest: /etc/systemd/system/gunicorn.socket
         mode: '0644'
-      with_items:
-        - gunicorn.socket
-        - gunicorn.service
-      register: vmmgrapi_systemd
+      register: vmmgrapi_systemd_socket
+
+    - name: Copy gunicorn.service systemd file
+      ansible.builtin.copy:
+        src: gunicorn.service
+        dest: /etc/systemd/system/gunicorn.service
+        mode: '0644'
+      register: vmmgrapi_systemd_service
 
     - name: Daemon-reload vmmgrapi # noqa: no-handler
       ansible.builtin.service:
         daemon_reload: yes
-      when: vmmgrapi_systemd.changed
+      when: vmmgrapi_systemd_socket.changed or vmmgrapi_systemd_service.changed
 
     - name: Restart gunicorn.socket if needed # noqa: no-handler
       ansible.builtin.systemd:
         name: gunicorn.socket
         enabled: yes
         state: restarted
-      when: vmmgrapi_systemd.changed
+      when: vmmgrapi_systemd_socket.changed or vmmgrapi_systemd_service.changed
 
     - name: Start and enable gunicorn.socket
       ansible.builtin.systemd:

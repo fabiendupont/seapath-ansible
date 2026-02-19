@@ -3,3 +3,4 @@
 
 ---
 vmmgrapi_ipaddress: "{{ ansible_host }}"
+vmmgrapi_user: "{{ 'www-data' if ansible_os_family == 'Debian' else 'nginx' }}"

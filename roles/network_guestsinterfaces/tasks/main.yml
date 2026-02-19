@@ -6,23 +6,30 @@
     var: item.value
   with_items: "{{ interfaces_on_br0 | dict2items }}"
   when: interfaces_on_br0 is defined
-- name: Create 00-INTERFACEX.netdev
-  template:
-    src: 00-INTERFACEX.netdev.j2
-    dest: /etc/systemd/network/00-{{ item.key }}.netdev
-    owner: "root"
-    group: "systemd-network"
-    mode: '0644'
-  with_items: "{{ interfaces_on_br0 | dict2items }}"
-  when: interfaces_on_br0 is defined
-  notify: Reload systemd-networkd configuration
-- name: Create 00-INTERFACEX.network
-  template:
-    src: 00-INTERFACEX.network.j2
-    dest: /etc/systemd/network/00-{{ item.key }}.network
-    owner: "root"
-    group: "systemd-network"
-    mode: '0644'
-  with_items: "{{ interfaces_on_br0 | dict2items }}"
-  when: interfaces_on_br0 is defined
-  notify: Reload systemd-networkd configuration
+
+- when:
+    - interfaces_on_br0 is defined
+    - ansible_os_family != "RedHat"
+  block:
+    - name: Create 00-INTERFACEX.netdev
+      template:
+        src: 00-INTERFACEX.netdev.j2
+        dest: /etc/systemd/network/00-{{ item.key }}.netdev
+        owner: "root"
+        group: "systemd-network"
+        mode: '0644'
+      with_items: "{{ interfaces_on_br0 | dict2items }}"
+      notify: Reload systemd-networkd configuration
+    - name: Create 00-INTERFACEX.network
+      template:
+        src: 00-INTERFACEX.network.j2
+        dest: /etc/systemd/network/00-{{ item.key }}.network
+        owner: "root"
+        group: "systemd-network"
+        mode: '0644'
+      with_items: "{{ interfaces_on_br0 | dict2items }}"
+      notify: Reload systemd-networkd configuration
+
+  # On RedHat with NetworkManager, libvirt creates TAP devices and attaches
+  # them to the bridge dynamically when VMs start. No pre-creation needed.
+  # The br0 bridge is already configured by the network_nmstate role.

@@ -1,0 +1,23 @@
+# Copyright (C) 2025 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+---
+- name: Ensure nmstate is installed
+  ansible.builtin.dnf:
+    name: nmstate
+    state: present
+
+- name: Create /etc/nmstate directory
+  ansible.builtin.file:
+    path: /etc/nmstate
+    state: directory
+    mode: '0755'
+
+- name: Generate NMState configuration
+  template:
+    src: nmstate_profile.j2
+    dest: /etc/nmstate/seapath.yml
+    mode: '0644'
+  notify:
+    - Apply NMState configuration
+    - Check reboot

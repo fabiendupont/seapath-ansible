@@ -20,52 +20,73 @@
     path: /etc/vimrc.local
     state: absent
 
-- name: Create /var/log/syslog-ng folder on hosts
+- name: Stop and disable syslog-ng if present
+  ansible.builtin.systemd:
+    name: syslog-ng
+    state: stopped
+    enabled: false
+  failed_when: false
+  register: redhat_syslog_ng_stop
+  changed_when: redhat_syslog_ng_stop.changed | default(false)
+
+- name: Remove syslog-ng package if installed
+  ansible.builtin.dnf:
+    name: syslog-ng
+    state: absent
+
+- name: Create /var/log/seapath folder on hosts
   file:
-    path: /var/log/syslog-ng
+    path: /var/log/seapath
     state: directory
     mode: '0755'
-- name: Copy syslog-ng conf file
+- name: Install rsyslog-gnutls for TLS support
+  ansible.builtin.dnf:
+    name: rsyslog-gnutls
+    state: present
+  when:
+    - syslog_tls_ca is defined
+    - syslog_tls_key is defined
+- name: Copy rsyslog SEAPATH conf file
   template:
-    src: syslog-ng.conf.j2
-    dest: /etc/syslog-ng/syslog-ng.conf
+    src: rsyslog-seapath.conf.j2
+    dest: /etc/rsyslog.d/seapath.conf
     mode: '0644'
-  notify: Restart syslog-ng
+  notify: Restart rsyslog
 - when:
     - syslog_tls_ca is defined
     - syslog_tls_key is defined
     - syslog_tls_server_ca is defined
   block:
-  - name: Create /etc/syslog-ng/cert.d
+  - name: Create /etc/rsyslog.d/cert.d
     file:
-      path: /etc/syslog-ng/cert.d
+      path: /etc/rsyslog.d/cert.d
       state: directory
       mode: '0755'
-    notify: Restart syslog-ng
-  - name: Create /etc/syslog-ng/ca.d
+    notify: Restart rsyslog
+  - name: Create /etc/rsyslog.d/ca.d
     file:
-      path: /etc/syslog-ng/ca.d/
+      path: /etc/rsyslog.d/ca.d
       state: directory
       mode: '0755'
-    notify: Restart syslog-ng
+    notify: Restart rsyslog
   - name: Copy syslog client certificate
     ansible.builtin.copy:
       src: "{{ syslog_tls_ca }}"
-      dest: /etc/syslog-ng/cert.d/clientcert.pem
+      dest: /etc/rsyslog.d/cert.d/clientcert.pem
       mode: '0644'
-    notify: Restart syslog-ng
+    notify: Restart rsyslog
   - name: Copy syslog key
     ansible.builtin.copy:
       src: "{{ syslog_tls_key }}"
-      dest: /etc/syslog-ng/cert.d/clientkey.pem
+      dest: /etc/rsyslog.d/cert.d/clientkey.pem
       mode: '0400'
-    notify: Restart syslog-ng
+    notify: Restart rsyslog
   - name: Copy syslog server ca
     ansible.builtin.copy:
       src: "{{ syslog_tls_server_ca }}"
-      dest: /etc/syslog-ng/ca.d/serverca.pem
+      dest: /etc/rsyslog.d/ca.d/serverca.pem
       mode: '0644'
-    notify: Restart syslog-ng
+    notify: Restart rsyslog
 
 - name: Retrieve user information for UID 1000
   ansible.builtin.command: getent passwd 1000
@@ -241,14 +262,8 @@
     state: present
   notify: Update Grub
 
-- name: Stop and Disable NetworkManager
+- name: Start and Enable NetworkManager
   service:
     name: NetworkManager
-    state: stopped
-    enabled: no
-
-- name: Start and Enable systemd-networkd
-  service:
-    name: systemd-networkd
     state: started
     enabled: yes

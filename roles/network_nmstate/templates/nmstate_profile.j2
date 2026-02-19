@@ -1,0 +1,128 @@
+# Copyright (C) 2025 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+# SEAPATH NMState network configuration
+# Managed by Ansible - do not edit manually
+---
+{% if dns_servers is defined %}
+dns-resolver:
+  config:
+    server:
+{% for server in (dns_servers if dns_servers is not string else [dns_servers]) %}
+      - "{{ server }}"
+{% endfor %}
+{% endif %}
+
+interfaces:
+{% if network_simple is not defined or not network_simple %}
+{% if br0vlan is defined %}
+  - name: "br0"
+    type: linux-bridge
+    state: up
+    bridge:
+      options:
+        stp:
+          enabled: false
+      port:
+        - name: "{{ network_interface }}"
+          vlan:
+            mode: trunk
+            trunk-tags:
+              - id-range:
+                  min: 1
+                  max: 4094
+  - name: "vlan{{ br0vlan }}"
+    type: vlan
+    state: up
+    vlan:
+      base-iface: "br0"
+      id: {{ br0vlan }}
+    ipv4:
+      enabled: true
+      address:
+        - ip: "{{ ip_addr }}"
+          prefix-length: {{ subnet | default(24) }}
+      dhcp: false
+    ipv6:
+      enabled: false
+{% else %}
+  - name: "br0"
+    type: linux-bridge
+    state: up
+    ipv4:
+      enabled: true
+      address:
+        - ip: "{{ ip_addr }}"
+          prefix-length: {{ subnet | default(24) }}
+      dhcp: false
+    ipv6:
+      enabled: false
+    bridge:
+      options:
+        stp:
+          enabled: false
+      port:
+        - name: "{{ network_interface }}"
+{% endif %}
+  - name: "{{ network_interface }}"
+    type: ethernet
+    state: up
+    ipv4:
+      enabled: false
+    ipv6:
+      enabled: false
+{% set no_cluster = network_nmstate_no_cluster_network is defined and network_nmstate_no_cluster_network %}
+{% set include_cluster = 'cluster_machines' in groups and inventory_hostname in groups['cluster_machines'] and not no_cluster %}
+{% if include_cluster and team0_0 is defined and team0_1 is defined %}
+  - name: "{{ team0_0 }}"
+    type: ethernet
+    state: up
+    mtu: 1800
+    ipv4:
+      enabled: false
+    ipv6:
+      enabled: false
+  - name: "{{ team0_1 }}"
+    type: ethernet
+    state: up
+    mtu: 1800
+    ipv4:
+      enabled: false
+    ipv6:
+      enabled: false
+  - name: "team0"
+    type: bond
+    state: up
+    ipv4:
+      enabled: true
+      address:
+        - ip: "{{ cluster_ip_addr }}"
+          prefix-length: {{ team0subnet | default(24) }}
+      dhcp: false
+    ipv6:
+      enabled: false
+    link-aggregation:
+      mode: active-backup
+      port:
+        - "{{ team0_0 }}"
+        - "{{ team0_1 }}"
+{% endif %}
+{% endif %}
+{% if custom_nmstate_interfaces is defined %}
+{% for iface in custom_nmstate_interfaces %}
+  - {{ iface | to_nice_yaml(indent=2) | indent(4, first=false) | trim }}
+{% endfor %}
+{% endif %}
+{% if network_simple is not defined or not network_simple %}
+
+routes:
+  config:
+{% if br0vlan is defined %}
+    - destination: "0.0.0.0/0"
+      next-hop-address: "{{ gateway_addr }}"
+      next-hop-interface: "vlan{{ br0vlan }}"
+{% else %}
+    - destination: "0.0.0.0/0"
+      next-hop-address: "{{ gateway_addr }}"
+      next-hop-interface: "br0"
+{% endif %}
+{% endif %}

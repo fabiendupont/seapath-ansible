@@ -1,0 +1,13 @@
+# Copyright (C) 2025 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+---
+- name: Apply NMState configuration
+  ansible.builtin.command:
+    cmd: nmstatectl apply /etc/nmstate/seapath.yml
+  when: network_nmstate_apply_config
+  changed_when: true
+
+- name: Check reboot
+  ansible.builtin.set_fact:
+    need_reboot: true

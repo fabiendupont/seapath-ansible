@@ -50,7 +50,6 @@ user --uid=1000 --gid=1000 --groups=wheel --name=admin --iscrypted --password="$
 user --uid=1005 --gid=1005 --groups=wheel,haclient --name=ansible --iscrypted --password="$6$BZGBti/HRUWlyHhY$8zI5CFPcuBJw7pKupU4d9QLTqphBDyDpkW8zMySquiKO/qcRZoEcqvCJraJXJ5y0sdNdJ2vHb6.z/UvvLJSrM/"
 
 user --uid=902 --gid=902  --name=oraclelinux-snmp
-user --uid=1033 --gid=1033  --name=www-data
 
 rootpw  --iscrypted $6$2Aj/yELlJst1TZMM$3JVT2YYjrbMpNGoHs.2O.SvcbtGSZqQvz5Ot5CdDmU/IsRFASnSqmlvS8bg8eGoOHmQ5i7dak0VWQWtziqYjh0
 
@@ -105,7 +104,8 @@ net-snmp
 net-snmp-utils
 sudo
 sysfsutils
-syslog-ng
+rsyslog
+rsyslog-gnutls
 sysstat
 vim
 wget

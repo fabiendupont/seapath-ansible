@@ -1,0 +1,50 @@
+# Copyright (C) 2022, RTE (http://www.rte-france.com)
+# Copyright (C) 2024 Red Hat, Inc.
+# SPDX-License-Identifier: Apache-2.0
+
+# SEAPATH rsyslog configuration
+
+{% if syslog_local is defined %}
+# Local logging
+*.* /var/log/seapath/syslog.local
+{% endif %}
+
+{% if syslog_server_ip is defined %}
+# Remote logging
+{% if syslog_tls_ca is defined and syslog_tls_key is defined %}
+# TLS transport
+global(
+  defaultNetstreamDriver="gtls"
+  defaultNetstreamDriverCAFile="/etc/rsyslog.d/ca.d/serverca.pem"
+  defaultNetstreamDriverCertFile="/etc/rsyslog.d/cert.d/clientcert.pem"
+  defaultNetstreamDriverKeyFile="/etc/rsyslog.d/cert.d/clientkey.pem"
+)
+action(
+  type="omfwd"
+  target="{{ syslog_server_ip }}"
+  port="{{ syslog_tls_port | default(6514) }}"
+  protocol="tcp"
+  streamDriver="gtls"
+  streamDriverMode="1"
+  streamDriverAuthMode="x509/name"
+  queue.type="LinkedList"
+  queue.fileName="remote_fwd"
+  queue.maxDiskSpace="107374182"
+  queue.saveOnShutdown="on"
+  action.resumeRetryCount="-1"
+)
+{% else %}
+# TCP transport (no TLS)
+action(
+  type="omfwd"
+  target="{{ syslog_server_ip }}"
+  port="{{ syslog_tcp_port | default(601) }}"
+  protocol="tcp"
+  queue.type="LinkedList"
+  queue.fileName="remote_fwd"
+  queue.maxDiskSpace="107374182"
+  queue.saveOnShutdown="on"
+  action.resumeRetryCount="-1"
+)
+{% endif %}
+{% endif %}
